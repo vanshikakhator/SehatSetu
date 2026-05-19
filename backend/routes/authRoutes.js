@@ -80,18 +80,22 @@ router.post('/login', async (req, res) => {
 // @route   PUT /api/auth/profile
 // @access  Private
 router.put('/profile', async (req, res) => {
-  const { name, phone, specialization, consultationFee } = req.body;
-  const userId = req.headers['user-id']; // For simplicity, in real app use JWT decode
+  const { name, phone, specialization, consultationFee, location, communityName, healthRecord, userId: bodyUserId } = req.body;
+  const userId = req.headers['user-id'] || bodyUserId;
 
   try {
     const user = await User.findById(userId);
 
     if (user) {
-      user.name = name || user.name;
-      user.phone = phone || user.phone;
+      user.name = name !== undefined ? name : user.name;
+      user.phone = phone !== undefined ? phone : user.phone;
+      user.communityName = communityName !== undefined ? communityName : user.communityName;
+      user.location = location !== undefined ? location : user.location;
+      user.healthRecord = healthRecord !== undefined ? healthRecord : user.healthRecord;
+
       if (user.role === 'doctor') {
-        user.specialization = specialization || user.specialization;
-        user.consultationFee = consultationFee || user.consultationFee;
+        user.specialization = specialization !== undefined ? specialization : user.specialization;
+        user.consultationFee = consultationFee !== undefined ? consultationFee : user.consultationFee;
       }
 
       const updatedUser = await user.save();
@@ -103,6 +107,9 @@ router.put('/profile', async (req, res) => {
         role: updatedUser.role,
         specialization: updatedUser.specialization,
         consultationFee: updatedUser.consultationFee,
+        communityName: updatedUser.communityName,
+        location: updatedUser.location,
+        healthRecord: updatedUser.healthRecord
       });
     } else {
       res.status(404).json({ message: 'User not found' });

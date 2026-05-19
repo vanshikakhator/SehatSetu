@@ -5,12 +5,15 @@ import axios from 'axios';
 
 export default function CallModal({ user, partnerName, appointmentId, type, onClose }) {
   const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const [localStream, setLocalStream] = useState(null);
   const [callStatus, setCallStatus] = useState("connecting"); // connecting, active, ended
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(type === 'voice');
   const [networkQuality, setNetworkQuality] = useState("high"); // high, low
   const [medicines, setMedicines] = useState([{ name: "", dosage: "", freq: "" }]);
   const [saving, setSaving] = useState(false);
+  const [partnerConnected, setPartnerConnected] = useState(user?.role === 'patient');
 
   useEffect(() => {
     let stream = null;
@@ -18,6 +21,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
       try {
         // Ensure audio is true for "voice nhi ho rha hai" fix
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setLocalStream(stream);
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
@@ -40,6 +44,42 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
       }
     };
   }, [networkQuality]);
+
+  useEffect(() => {
+    if (localStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream, partnerConnected, videoOff]);
+
+  useEffect(() => {
+    if (!appointmentId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
+        const currentAppt = res.data.find(a => a._id === appointmentId);
+        if (currentAppt) {
+          if (currentAppt.status === 'completed') {
+            onClose();
+          } else if (user.role === 'doctor') {
+            if (currentAppt.status === 'confirmed') {
+              alert("The patient declined the call.");
+              onClose();
+            } else if (currentAppt.status === 'active') {
+              setPartnerConnected(true);
+            }
+          } else if (user.role === 'patient') {
+            if (currentAppt.status === 'confirmed') {
+              alert("The doctor ended the call.");
+              onClose();
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error polling call status", err);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [appointmentId, user, onClose]);
 
   const handleSavePrescription = async () => {
     if (!appointmentId) return;
@@ -74,17 +114,33 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
         
         {/* Call Area */}
         <div style={{ flex: user?.role === 'doctor' ? 0.7 : 1, position: "relative", display: "flex", flexDirection: "column", background: "#222" }}>
-          <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", overflow: "hidden", background: "#000" }}>
             {callStatus === "active" ? (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ width: 120, height: 120, borderRadius: "50%", background: COLORS.primary, fontSize: 48, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-                  {partnerName?.[0] || "P"}
-                </div>
-                <h2 style={{ fontSize: 32 }}>{partnerName}</h2>
-                <p style={{ opacity: 0.6, fontSize: 18 }}>{videoOff ? "Audio Call Active (Low Bandwidth Mode)" : "Live Video Consultation..."}</p>
-              </div>
+              <>
+                {/* Simulated Remote Video using local stream */}
+                {!videoOff && partnerConnected && (
+                  <video ref={remoteVideoRef} autoPlay playsInline style={{ position: "absolute", width: "100%", height: "100%", objectFit: "cover" }} />
+                )}
+
+                {/* Subtitle & details overlays */}
+                {(!partnerConnected || videoOff) ? (
+                  <div style={{ textAlign: "center", zIndex: 2, background: "rgba(0,0,0,0.6)", padding: 30, borderRadius: 20 }}>
+                    <div style={{ width: 120, height: 120, borderRadius: "50%", background: COLORS.primary, fontSize: 48, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+                      {partnerName?.[0] || "P"}
+                    </div>
+                    <h2 style={{ fontSize: 32, margin: 0 }}>{partnerName}</h2>
+                    <p style={{ opacity: 0.8, fontSize: 18, margin: "10px 0 0" }}>
+                      {!partnerConnected && user?.role === 'doctor' ? "Waiting for patient to join..." : "Audio Call Active (Low Bandwidth Mode)"}
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ position: "absolute", top: 20, left: 20, zIndex: 2, background: "rgba(0,0,0,0.6)", padding: "10px 20px", borderRadius: 30 }}>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>🟢 Connected to {partnerName}</span>
+                  </div>
+                )}
+              </>
             ) : (
-              <p>{callStatus === "connecting" ? "Initializing camera..." : "Call Failed"}</p>
+              <p style={{ zIndex: 2 }}>{callStatus === "connecting" ? "Initializing camera..." : "Call Failed"}</p>
             )}
 
             {/* Local Video Overlay */}

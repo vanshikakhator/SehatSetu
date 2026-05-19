@@ -18,8 +18,13 @@ const appointmentSchema = new mongoose.Schema({
   disease: String,
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'completed', 'cancelled'],
+    enum: ['pending', 'confirmed', 'calling', 'active', 'completed', 'cancelled'],
     default: 'pending'
+  },
+  callType: {
+    type: String,
+    enum: ['video', 'voice', 'none'],
+    default: 'none'
   },
   paymentStatus: {
     type: String,

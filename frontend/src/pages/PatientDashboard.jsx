@@ -25,6 +25,7 @@ export default function PatientDashboard() {
   const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [nearbyPharmacies, setNearbyPharmacies] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [sosActive, setSosActive] = useState(false);
   const networkLevel = "high";
 
   useEffect(() => {
@@ -60,16 +61,38 @@ export default function PatientDashboard() {
     navigate('/');
   };
 
-  // Mock incoming call if a doctor is active
+  // Detect incoming call from the database
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const confirmed = appointments.find(a => a.status === 'confirmed');
-      if (confirmed) {
-        setIncomingCall({ doctorName: confirmed.doctorName, appointmentId: confirmed._id });
-      }
-    }, 15000);
-    return () => clearTimeout(timer);
+    const callingAppt = appointments.find(a => a.status === 'calling');
+    if (callingAppt) {
+      setIncomingCall({ 
+        doctorName: callingAppt.doctorName, 
+        appointmentId: callingAppt._id, 
+        type: callingAppt.callType || 'video' 
+      });
+    } else {
+      setIncomingCall(null);
+    }
   }, [appointments]);
+
+  const acceptCall = async (incoming) => {
+    try {
+      await axios.put(`http://localhost:5000/api/appointments/${incoming.appointmentId}/status`, { status: 'active' });
+      setCallModal({ name: incoming.doctorName, id: incoming.appointmentId, type: incoming.type });
+      setIncomingCall(null);
+    } catch (err) {
+      alert("Failed to accept call");
+    }
+  };
+
+  const declineCall = async (incoming) => {
+    try {
+      await axios.put(`http://localhost:5000/api/appointments/${incoming.appointmentId}/status`, { status: 'confirmed', callType: 'none' });
+      setIncomingCall(null);
+    } catch (err) {
+      alert("Failed to decline call");
+    }
+  };
 
   const tabs = [
     { id: "home", label: "Home", icon: "🏠" },
@@ -139,7 +162,7 @@ export default function PatientDashboard() {
   return (
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", minHeight: "100vh", background: "#f0faf5" }}>
       {payModal && <PaymentModal doctor={payModal} user={user} onClose={() => setPayModal(null)} onSuccess={() => { setPayModal(null); fetchAppointments(); setTab("appointments"); }} />}
-      {callModal && <CallModal user={user} partnerName={callModal.name} appointmentId={callModal.id} onClose={() => { setCallModal(null); fetchAppointments(); }} />}
+      {callModal && <CallModal user={user} partnerName={callModal.name} appointmentId={callModal.id} type={callModal.type} onClose={() => { setCallModal(null); fetchAppointments(); }} />}
 
       {incomingCall && (
         <div style={{ position: "fixed", top: 20, right: 20, background: "#fff", padding: 24, borderRadius: 20, boxShadow: "0 10px 30px rgba(0,0,0,0.2)", zIndex: 2000, border: `2px solid ${COLORS.primary}`, width: 320 }}>
@@ -147,12 +170,12 @@ export default function PatientDashboard() {
             <Avatar initials={incomingCall.doctorName?.[0]} size={50} color={COLORS.primary} />
             <div>
               <p style={{ margin: 0, fontWeight: 800, fontSize: 18 }}>Dr. {incomingCall.doctorName}</p>
-              <p style={{ margin: 0, fontSize: 14, color: COLORS.textMuted }}>Incoming Call...</p>
+              <p style={{ margin: 0, fontSize: 14, color: COLORS.textMuted }}>Incoming {incomingCall.type === 'voice' ? 'Voice' : 'Video'} Call...</p>
             </div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <Btn style={{ flex: 1, background: "#22c55e", fontSize: 16 }} onClick={() => { setCallModal({ name: incomingCall.doctorName, id: incomingCall.appointmentId }); setIncomingCall(null); }}>Accept</Btn>
-            <Btn style={{ flex: 1, background: COLORS.danger, fontSize: 16 }} onClick={() => setIncomingCall(null)}>Decline</Btn>
+            <Btn style={{ flex: 1, background: "#22c55e", fontSize: 16 }} onClick={() => acceptCall(incomingCall)}>Accept</Btn>
+            <Btn style={{ flex: 1, background: COLORS.danger, fontSize: 16 }} onClick={() => declineCall(incomingCall)}>Decline</Btn>
           </div>
         </div>
       )}
@@ -345,6 +368,120 @@ export default function PatientDashboard() {
               ))}
               
               {hasSearched && <Btn variant="outline" onClick={() => {setHasSearched(false); setNearbyPharmacies([]);}} style={{ marginTop: 20 }}>Clear Search</Btn>}
+            </div>
+          )}
+
+          {tab === "sos" && (
+            <div>
+              <h2 style={{ color: COLORS.text, marginBottom: 12, fontSize: 32 }}>🚨 SOS Emergency Response</h2>
+              <p style={{ color: COLORS.textMuted, fontSize: 18, marginBottom: 30 }}>Trigger an immediate emergency alert. This will broadcast your critical details, location, and health records to all nearby doctors and health workers.</p>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 30, alignItems: "start" }}>
+                {/* Left Action Box */}
+                <Card style={{ padding: 40, display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
+                  {!sosActive ? (
+                    <>
+                      <div 
+                        onClick={() => setSosActive(true)}
+                        style={{
+                          width: 200,
+                          height: 200,
+                          borderRadius: "50%",
+                          background: "radial-gradient(circle, #ff3b30 0%, #cc1100 100%)",
+                          boxShadow: "0 10px 30px rgba(255, 59, 48, 0.5)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#fff",
+                          fontSize: 32,
+                          fontWeight: 900,
+                          cursor: "pointer",
+                          transition: "transform 0.2s, box-shadow 0.2s",
+                          userSelect: "none",
+                          textAlign: "center",
+                          lineHeight: "1.2"
+                        }}
+                        onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.95)"; }}
+                        onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+                      >
+                        TRIGGER<br />SOS
+                      </div>
+                      <p style={{ fontSize: 18, color: COLORS.text, fontWeight: 700, margin: 0 }}>Press and release to broadcast emergency</p>
+                    </>
+                  ) : (
+                    <>
+                      <div 
+                        style={{
+                          width: 200,
+                          height: 200,
+                          borderRadius: "50%",
+                          background: "radial-gradient(circle, #ff9500 0%, #e08500 100%)",
+                          boxShadow: "0 0 40px rgba(255, 149, 0, 0.8)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#fff",
+                          fontSize: 32,
+                          fontWeight: 900,
+                          animation: "pulse 1.5s infinite",
+                          userSelect: "none"
+                        }}
+                      >
+                        🚨 ACTIVE
+                      </div>
+                      <style>{`
+                        @keyframes pulse {
+                          0% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 149, 0, 0.6); }
+                          50% { transform: scale(1.08); box-shadow: 0 0 45px rgba(255, 149, 0, 0.9); }
+                          100% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 149, 0, 0.6); }
+                        }
+                      `}</style>
+                      <div style={{ textAlign: "center" }}>
+                        <h3 style={{ fontSize: 24, color: COLORS.danger, margin: "0 0 8px" }}>Broadcasting Location...</h3>
+                        <p style={{ fontSize: 16, color: COLORS.textMuted, margin: 0 }}>Your coordinates and health profile are being transmitted in real-time.</p>
+                      </div>
+                      <div style={{ background: COLORS.primaryLight, padding: 20, borderRadius: 16, width: "100%", textAlign: "left" }}>
+                        <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 18, color: COLORS.primaryDark }}>🚨 Responding Rescue Unit:</p>
+                        <p style={{ margin: "4px 0", fontSize: 16 }}>🏃 **Health Worker Rajesh Kumar** has acknowledged (ETA: 4 mins)</p>
+                        <p style={{ margin: "4px 0", fontSize: 16 }}>🚑 **Ambulance Service** dispatched from Gram Sub-Center (ETA: 12 mins)</p>
+                      </div>
+                      <Btn onClick={() => setSosActive(false)} style={{ background: "#444", fontSize: 16, width: "100%" }}>Cancel Emergency Alert</Btn>
+                    </>
+                  )}
+                </Card>
+
+                {/* Right Contacts Box */}
+                <div style={{ width: "100%" }}>
+                  <h3 style={{ color: COLORS.text, fontSize: 22, marginBottom: 15 }}>Emergency Helpdesk</h3>
+                  <Card style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 18 }}>Village Health Sub-Center</p>
+                        <p style={{ margin: 0, fontSize: 14, color: COLORS.textMuted }}>Direct Emergency Ward Line</p>
+                      </div>
+                      <a href="tel:+919876543210" style={{ textDecoration: "none", background: COLORS.primary, color: "#fff", padding: "10px 16px", borderRadius: 10, fontWeight: 700 }}>Call 📞</a>
+                    </div>
+                  </Card>
+                  <Card style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 18 }}>Ambulance Coordinator</p>
+                        <p style={{ margin: 0, fontSize: 14, color: COLORS.textMuted }}>District Central dispatch</p>
+                      </div>
+                      <a href="tel:108" style={{ textDecoration: "none", background: COLORS.primary, color: "#fff", padding: "10px 16px", borderRadius: 10, fontWeight: 700 }}>Call 📞</a>
+                    </div>
+                  </Card>
+                  <Card style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 18 }}>Community Health Worker</p>
+                        <p style={{ margin: 0, fontSize: 14, color: COLORS.textMuted }}>Rajesh Kumar (Sector 4)</p>
+                      </div>
+                      <a href="tel:+919988776655" style={{ textDecoration: "none", background: COLORS.primary, color: "#fff", padding: "10px 16px", borderRadius: 10, fontWeight: 700 }}>Call 📞</a>
+                    </div>
+                  </Card>
+                </div>
+              </div>
             </div>
           )}
         </main>

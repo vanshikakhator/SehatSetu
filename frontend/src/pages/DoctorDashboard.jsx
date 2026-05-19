@@ -76,6 +76,15 @@ export default function DoctorDashboard() {
     }
   };
 
+  const startCall = async (appt, type) => {
+    try {
+      await axios.put(`http://localhost:5000/api/appointments/${appt._id}/status`, { status: 'calling', callType: type });
+      setCallModal({ ...appt, type });
+    } catch (err) {
+      alert("Failed to initiate call");
+    }
+  };
+
   const renderPrescriptionTable = (prescriptionStr) => {
     try {
       const medicines = JSON.parse(prescriptionStr);
@@ -202,8 +211,8 @@ export default function DoctorDashboard() {
                           <p style={{ margin: 0, fontSize: 18, color: COLORS.textMuted }}>Complaint: <span style={{ color: COLORS.text, fontWeight: 600 }}>{a.disease}</span></p>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <Btn small onClick={() => setCallModal({...a, type: 'video'})} style={{ fontSize: 16, padding: "10px 16px", background: "#22c55e" }}>📹 Video</Btn>
-                          <Btn small onClick={() => setCallModal({...a, type: 'voice'})} style={{ fontSize: 16, padding: "10px 16px", background: "#3b82f6" }}>📞 Voice</Btn>
+                          <Btn small onClick={() => startCall(a, 'video')} style={{ fontSize: 16, padding: "10px 16px", background: "#22c55e" }}>📹 Video</Btn>
+                          <Btn small onClick={() => startCall(a, 'voice')} style={{ fontSize: 16, padding: "10px 16px", background: "#3b82f6" }}>📞 Voice</Btn>
                           <Btn small onClick={() => alert("SMS notification sent to " + a.patientName)} style={{ fontSize: 16, padding: "10px 16px", background: "#f59e0b" }}>✉️ SMS</Btn>
                         </div>
                       </div>

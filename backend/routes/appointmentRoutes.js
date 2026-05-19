@@ -81,4 +81,19 @@ router.put('/:id/prescription', async (req, res) => {
   }
 });
 
+// @route   PUT /api/appointments/:id/status
+// @desc    Update status (and optionally callType) of an appointment
+router.put('/:id/status', async (req, res) => {
+  const { status, callType } = req.body;
+  try {
+    const updateData = { status };
+    if (callType) updateData.callType = callType;
+    
+    const appointment = await Appointment.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    res.json(appointment);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
