@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { COLORS } from '../../constants';
 import Btn from '../common/Btn';
 import axios from 'axios';
@@ -11,7 +11,18 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
   const [time, setTime] = useState("10:00 AM");
   const [upiId, setUpiId] = useState("");
 
+  // Load Razorpay script only when this modal opens (lazy load)
+  useEffect(() => {
+    if (document.getElementById('razorpay-script')) return; // already loaded
+    const script = document.createElement('script');
+    script.id = 'razorpay-script';
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
   const timeSlots = ["09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"];
+
 
   const handleSimulatedPayment = async () => {
     if (!upiId) {
@@ -19,18 +30,36 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
       return;
     }
     setLoading(true);
+
+    const bookingPayload = {
+      patientId: user._id,
+      doctorId: doctor._id,
+      patientName: user.name,
+      doctorName: doctor.name,
+      fee: doctor.consultationFee,
+      disease: disease || "General Consultation",
+      date: date,
+      time: time
+    };
+
+    if (!navigator.onLine) {
+      try {
+        const localforage = (await import('localforage')).default;
+        const offlineBookings = await localforage.getItem(`offline_bookings_${user._id}`) || [];
+        offlineBookings.push({ ...bookingPayload, id: Date.now(), status: 'queued' });
+        await localforage.setItem(`offline_bookings_${user._id}`, offlineBookings);
+        setStep(4); // 4 is offline success
+      } catch (err) {
+        alert("Failed to save offline booking.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       // 1. Book the appointment
-      const res = await axios.post('http://localhost:5000/api/appointments/book', {
-        patientId: user._id,
-        doctorId: doctor._id,
-        patientName: user.name,
-        doctorName: doctor.name,
-        fee: doctor.consultationFee,
-        disease: disease || "General Consultation",
-        date: date,
-        time: time
-      });
+      const res = await axios.post('http://localhost:5000/api/appointments/book', bookingPayload);
 
       const { appointment } = res.data;
 
@@ -153,6 +182,18 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
               Your appointment with <span style={{ fontWeight: 700, color: COLORS.primary }}>Dr. {doctor.name}</span> has been confirmed for <span style={{ fontWeight: 700, color: "#1a202c" }}>{date} at {time}</span>.
             </p>
             <Btn style={{ width: "100%", padding: "20px 0", fontSize: 20 }} onClick={onSuccess}>Go to Dashboard</Btn>
+          </div>
+        )}
+        {step === 4 && (
+          <div style={{ padding: "20px 0" }}>
+            <div style={{ width: 100, height: 100, background: "#f59e0b", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 60, color: "#fff", margin: "0 auto 32px", boxShadow: "0 10px 20px rgba(245, 158, 11, 0.3)" }}>
+              ⏳
+            </div>
+            <h3 style={{ fontSize: 36, fontWeight: 900, color: "#1a202c", marginBottom: 16 }}>Saved Offline!</h3>
+            <p style={{ fontSize: 20, color: COLORS.textMuted, lineHeight: 1.6, marginBottom: 40 }}>
+              You are currently offline. Your appointment with <span style={{ fontWeight: 700, color: COLORS.primary }}>Dr. {doctor.name}</span> has been saved and will be confirmed automatically when you reconnect to the internet.
+            </p>
+            <Btn style={{ width: "100%", padding: "20px 0", fontSize: 20, background: "#f59e0b" }} onClick={onSuccess}>Got it</Btn>
           </div>
         )}
       </div>

@@ -8,6 +8,7 @@ import Btn from '../components/common/Btn';
 import ConsultationModal from '../components/modals/ConsultationModal';
 import CallModal from '../components/modals/CallModal';
 import { useAuth } from '../context/AuthContext';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import axios from 'axios';
 
 export default function DoctorDashboard() {
@@ -172,7 +173,7 @@ export default function DoctorDashboard() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div id="bhashini-translation-widget"></div>
+          <LanguageSwitcher />
           <button onClick={handleLogout} style={{ background: "#ffffff22", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 10, cursor: "pointer", fontSize: 18, fontWeight: 700 }}>Logout</button>
         </div>
       </nav>

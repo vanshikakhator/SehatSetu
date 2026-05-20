@@ -6,6 +6,7 @@ import Badge from '../components/common/Badge';
 import Card from '../components/common/Card';
 import Btn from '../components/common/Btn';
 import { useAuth } from '../context/AuthContext';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 export default function HealthWorkerDashboard() {
   const { user, logout } = useAuth();
@@ -36,7 +37,7 @@ export default function HealthWorkerDashboard() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div id="bhashini-translation-widget"></div>
+          <LanguageSwitcher />
           <button onClick={handleLogout} style={{ background: "#ffffff22", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 10, cursor: "pointer", fontSize: 18, fontWeight: 700 }}>Logout</button>
         </div>
       </nav>

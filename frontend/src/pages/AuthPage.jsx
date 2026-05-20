@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { COLORS } from '../constants';
 import Btn from '../components/common/Btn';
 import { useAuth } from '../context/AuthContext';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 export default function AuthPage({ mode }) {
   const [role, setRole] = useState(null);
@@ -41,6 +42,11 @@ export default function AuthPage({ mode }) {
   };
 
   const handleSubmit = async () => {
+    if (!navigator.onLine) {
+      setError("You are currently offline. You need an internet connection to log in or sign up.");
+      return;
+    }
+    
     if (!role) {
       setError("Please select a role");
       return;
@@ -81,7 +87,7 @@ export default function AuthPage({ mode }) {
           <div style={{ width: 40, height: 40, borderRadius: 10, background: COLORS.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🌿</div>
           <span style={{ fontWeight: 800, fontSize: 24, color: COLORS.text }}>सेहतSetu</span>
         </div>
-        <div id="bhashini-translation-widget"></div>
+        <div id="bhashini-translation-widget"><LanguageSwitcher /></div>
       </nav>
 
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>

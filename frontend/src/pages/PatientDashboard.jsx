@@ -7,10 +7,12 @@ import Card from '../components/common/Card';
 import Btn from '../components/common/Btn';
 import SOSButton from '../components/common/SOSButton';
 import NetworkBadge from '../components/common/NetworkBadge';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import PaymentModal from '../components/modals/PaymentModal';
 import CallModal from '../components/modals/CallModal';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import localforage from 'localforage';
 
 export default function PatientDashboard() {
   const { user, logout } = useAuth();
@@ -26,6 +28,7 @@ export default function PatientDashboard() {
   const [nearbyPharmacies, setNearbyPharmacies] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [sosActive, setSosActive] = useState(false);
+  const [mapModal, setMapModal] = useState(null); // { name, location, address }
   const networkLevel = "high";
 
   useEffect(() => {
@@ -38,9 +41,57 @@ export default function PatientDashboard() {
   const fetchAppointments = async () => {
     try {
       const res = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
-      setAppointments(res.data);
+
+      // Load offline bookings
+      const offlineBookings = await localforage.getItem(`offline_bookings_${user._id}`) || [];
+
+      // Sync them if online
+      if (navigator.onLine && offlineBookings.length > 0) {
+        let anySynced = false;
+        for (let b of offlineBookings) {
+          if (b.status === 'queued') {
+            try {
+              const bRes = await axios.post('http://localhost:5000/api/appointments/book', b);
+              await axios.post('http://localhost:5000/api/appointments/verify', {
+                appointmentId: bRes.data.appointment._id,
+                razorpayPaymentId: "simulated_" + Date.now()
+              });
+              b.status = 'synced';
+              anySynced = true;
+            } catch (e) {
+              console.error("Failed to sync offline booking", e);
+            }
+          }
+        }
+        if (anySynced) {
+          const remainingOffline = offlineBookings.filter(b => b.status === 'queued');
+          await localforage.setItem(`offline_bookings_${user._id}`, remainingOffline);
+          // Refetch to get the latest online status
+          const updatedRes = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
+          setAppointments(updatedRes.data);
+          return;
+        }
+      }
+
+      // Display merged offline and online
+      const pendingOffline = offlineBookings.filter(b => b.status === 'queued').map(b => ({
+        ...b,
+        _id: b.id,
+        paymentStatus: 'pending sync',
+        status: 'queued (offline)'
+      }));
+      setAppointments([...pendingOffline, ...res.data]);
     } catch (err) {
       console.error("Failed to fetch appointments");
+      // Load offline bookings if API fails
+      const offlineBookings = await localforage.getItem(`offline_bookings_${user._id}`) || [];
+      const pendingOffline = offlineBookings.filter(b => b.status === 'queued').map(b => ({
+        ...b,
+        _id: b.id,
+        paymentStatus: 'pending sync',
+        status: 'queued (offline)'
+      }));
+      setAppointments(pendingOffline);
     }
   };
 
@@ -65,10 +116,10 @@ export default function PatientDashboard() {
   useEffect(() => {
     const callingAppt = appointments.find(a => a.status === 'calling');
     if (callingAppt) {
-      setIncomingCall({ 
-        doctorName: callingAppt.doctorName, 
-        appointmentId: callingAppt._id, 
-        type: callingAppt.callType || 'video' 
+      setIncomingCall({
+        doctorName: callingAppt.doctorName,
+        appointmentId: callingAppt._id,
+        type: callingAppt.callType || 'video'
       });
     } else {
       setIncomingCall(null);
@@ -109,20 +160,78 @@ export default function PatientDashboard() {
   const findNearbyPharmacies = async (medNamesArray) => {
     try {
       const medsString = medNamesArray.join(',');
+
+      if (!navigator.onLine) {
+        const matched = mockMedicines.filter(m => medNamesArray.some(name => m.name.toLowerCase().includes(name.toLowerCase())));
+        if (matched.length > 0) {
+          setNearbyPharmacies([{
+            name: "Sharma Medical Store",
+            communityName: "Sector 4, Barasat",
+            location: "22.7248,88.3947", // Barasat coords
+            matchedMeds: matched.map(m => ({ name: m.name, stock: m.qty, price: m.price || 10 }))
+          }]);
+        } else {
+          setNearbyPharmacies([]);
+        }
+        setHasSearched(true);
+        setTab("medicines");
+        return;
+      }
+
       const res = await axios.get(`http://localhost:5000/api/auth/pharmacies/search?meds=${encodeURIComponent(medsString)}`);
-      setNearbyPharmacies(res.data);
+
+      if (res.data && res.data.length > 0) {
+        setNearbyPharmacies(res.data); // DB pharmacies already have location field
+      } else {
+        // Fallback to mock data with real coordinates
+        const matched = mockMedicines.filter(m => medNamesArray.some(name => m.name.toLowerCase().includes(name.toLowerCase())));
+        if (matched.length > 0) {
+          setNearbyPharmacies([
+            {
+              name: "Sharma Medical",
+              communityName: "Plot 12, Barasat Market, North 24 Parganas",
+              location: "22.7248,88.3947",
+              matchedMeds: matched.map(m => ({ name: m.name, stock: m.qty, price: m.price || 10 }))
+            },
+            {
+              name: "Jan Aushadhi Kendra",
+              communityName: "Near Primary Health Centre, Deganga",
+              location: "22.6780,88.4560",
+              matchedMeds: matched.map(m => ({ name: m.name, stock: Math.max(5, m.qty - 10), price: Math.floor((m.price || 10) * 0.8) }))
+            }
+          ]);
+        } else {
+          setNearbyPharmacies([]);
+        }
+      }
+
       setHasSearched(true);
       setTab("medicines");
     } catch (err) {
       console.error("Failed to search pharmacies", err);
+      const matched = mockMedicines.filter(m => medNamesArray.some(name => m.name.toLowerCase().includes(name.toLowerCase())));
+      if (matched.length > 0) {
+        setNearbyPharmacies([{
+          name: "Sharma Medical",
+          communityName: "Plot 12, Barasat Market, North 24 Parganas",
+          location: "22.7248,88.3947",
+          matchedMeds: matched.map(m => ({ name: m.name, stock: m.qty, price: m.price || 10 }))
+        }]);
+      } else {
+        setNearbyPharmacies([]);
+      }
+      setHasSearched(true);
+      setTab("medicines");
     }
   };
 
-  const renderPrescriptionTable = (prescriptionStr) => {
+  const renderPrescriptionTable = (prescriptionInput) => {
+    // Safety: ensure we always work with a string, never an object
+    const prescriptionStr = typeof prescriptionInput === 'string' ? prescriptionInput : JSON.stringify(prescriptionInput);
     try {
       const medicines = JSON.parse(prescriptionStr);
       if (!Array.isArray(medicines)) throw new Error("Not an array");
-      
+
       const allMedNames = medicines.map(m => m.name);
 
       return (
@@ -139,9 +248,9 @@ export default function PatientDashboard() {
             <tbody>
               {medicines.map((m, i) => (
                 <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                  <td style={{ padding: 12, fontWeight: 700 }}>{m.name}</td>
-                  <td style={{ padding: 12, color: COLORS.textMuted }}>{m.dosage}</td>
-                  <td style={{ padding: 12, color: COLORS.textMuted }}>{m.freq}</td>
+                  <td style={{ padding: 12, fontWeight: 700 }}>{String(m.name || '')}</td>
+                  <td style={{ padding: 12, color: COLORS.textMuted }}>{String(m.dosage || '')}</td>
+                  <td style={{ padding: 12, color: COLORS.textMuted }}>{String(m.freq || '')}</td>
                   <td style={{ padding: 12, textAlign: "right" }}>
                     <Btn small onClick={() => findNearbyPharmacies([m.name])} style={{ fontSize: 14, background: "#f59e0b" }}>Search 💊</Btn>
                   </td>
@@ -155,7 +264,9 @@ export default function PatientDashboard() {
         </div>
       );
     } catch {
-      return <p style={{ margin: 0, fontSize: 16, whiteSpace: "pre-line", color: COLORS.text }}>{prescriptionStr}</p>;
+      // Always coerce to a safe string — never render a raw object
+      const safe = typeof prescriptionInput === 'string' ? prescriptionInput : '';
+      return safe ? <p style={{ margin: 0, fontSize: 16, whiteSpace: "pre-line", color: COLORS.text }}>{safe}</p> : null;
     }
   };
 
@@ -163,6 +274,68 @@ export default function PatientDashboard() {
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", minHeight: "100vh", background: "#f0faf5" }}>
       {payModal && <PaymentModal doctor={payModal} user={user} onClose={() => setPayModal(null)} onSuccess={() => { setPayModal(null); fetchAppointments(); setTab("appointments"); }} />}
       {callModal && <CallModal user={user} partnerName={callModal.name} appointmentId={callModal.id} type={callModal.type} onClose={() => { setCallModal(null); fetchAppointments(); }} />}
+
+      {/* Map Modal for Pharmacy Directions */}
+      {mapModal && (() => {
+        // Detect coords: handles both "lat,lng" and "lat, lng" (with space)
+        const locRaw = mapModal.location ? String(mapModal.location).trim() : null;
+        const isCoords = locRaw && /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(locRaw);
+
+        // If we have coords, use them directly; otherwise search by name + address text
+        const searchQuery = locRaw
+          ? locRaw.replace(/\s/g, '')          // strip any spaces for Google Maps URL
+          : encodeURIComponent(`${mapModal.name}, ${mapModal.address}`);
+
+        // Google Maps embed — geocodes both text addresses AND lat,lng coords
+        const googleEmbedUrl = `https://maps.google.com/maps?q=${searchQuery}&output=embed&z=15`;
+        // Google Maps open link
+        const googleOpenUrl = `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)" }}>
+            <div style={{ background: "#fff", borderRadius: 24, width: 700, maxWidth: "96%", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", overflow: "hidden" }}>
+              {/* Header */}
+              <div style={{ background: COLORS.primary, padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <p style={{ margin: 0, color: "#fff", fontWeight: 800, fontSize: 20 }}>🗺️ {mapModal.name}</p>
+                  <p style={{ margin: "4px 0 0", color: "rgba(255,255,255,0.85)", fontSize: 14 }}>📍 {mapModal.address}</p>
+                </div>
+                <button onClick={() => setMapModal(null)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: "50%", width: 38, height: 38, cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              </div>
+
+              {/* Google Maps Embed — geocodes address automatically */}
+              <div style={{ width: "100%", height: 380 }}>
+                <iframe
+                  title="Pharmacy Location Map"
+                  src={googleEmbedUrl}
+                  style={{ width: "100%", height: "100%", border: "none" }}
+                  loading="lazy"
+                  allowFullScreen
+                />
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding: "16px 28px", display: "flex", gap: 12, borderTop: `1px solid ${COLORS.border}`, background: "#f8fafc" }}>
+                <a
+                  href={googleOpenUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ flex: 1, textAlign: "center", padding: "13px 0", background: COLORS.primary, color: "#fff", borderRadius: 12, fontWeight: 700, fontSize: 16, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                >
+                  🧭 Open in Google Maps
+                </a>
+                <button
+                  onClick={() => setMapModal(null)}
+                  style={{ padding: "13px 28px", background: "#e2e8f0", border: "none", borderRadius: 12, fontWeight: 600, fontSize: 16, cursor: "pointer", color: COLORS.text }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
 
       {incomingCall && (
         <div style={{ position: "fixed", top: 20, right: 20, background: "#fff", padding: 24, borderRadius: 20, boxShadow: "0 10px 30px rgba(0,0,0,0.2)", zIndex: 2000, border: `2px solid ${COLORS.primary}`, width: 320 }}>
@@ -187,7 +360,7 @@ export default function PatientDashboard() {
           <span style={{ fontWeight: 800, fontSize: 24 }}>SehatSetu Patient</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div id="bhashini-translation-widget"></div>
+          <LanguageSwitcher />
           <NetworkBadge level={networkLevel} />
           <button onClick={handleLogout} style={{ background: "#ffffff22", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 10, cursor: "pointer", fontSize: 18, fontWeight: 700 }}>Logout</button>
         </div>
@@ -227,7 +400,7 @@ export default function PatientDashboard() {
                 </div>
               </div>
 
-              <Card style={{ marginBottom: 20, padding: 30 }}>
+              {/* <Card style={{ marginBottom: 20, padding: 30 }}>
                 <h3 style={{ margin: "0 0 20px", color: COLORS.text, fontSize: 20 }}>📋 Digital Prescription Scanner</h3>
                 <div style={{ border: `2px dashed ${COLORS.border}`, borderRadius: 16, padding: 40, textAlign: "center", marginBottom: 20 }}>
                   <p style={{ fontSize: 48, margin: "0 0 12px" }}>📄</p>
@@ -245,12 +418,12 @@ export default function PatientDashboard() {
                     ))}
                   </div>
                 )}
-              </Card>
+              </Card> */}
 
               {appointments.filter(a => a.prescription).length > 0 && (
                 <Card style={{ padding: 30 }}>
                   <h3 style={{ margin: "0 0 20px", color: COLORS.text, fontSize: 20 }}>📑 Digital Prescriptions from Doctors</h3>
-                  {appointments.filter(a => a.prescription).map((a, i) => (
+                  {appointments.filter(a => typeof a.prescription === 'string' && a.prescription).map((a, i) => (
                     <div key={i} style={{ padding: 20, background: "#f8fafc", borderRadius: 16, marginBottom: 15, border: `1px solid ${COLORS.border}` }}>
                       <p style={{ margin: 0, fontWeight: 700, fontSize: 18, color: COLORS.primary }}>Dr. {a.doctorName}</p>
                       <p style={{ margin: "4px 0 12px", fontSize: 14, color: COLORS.textMuted }}>Assigned: {a.date} at {a.time}</p>
@@ -315,12 +488,12 @@ export default function PatientDashboard() {
                         <p style={{ margin: 0, fontSize: 18, color: COLORS.textMuted }}>Complaint: <span style={{ color: COLORS.text, fontWeight: 600 }}>{a.disease}</span></p>
                       </div>
                       <div style={{ textAlign: "right" }}>
-                        <Badge color={a.paymentStatus === 'paid' ? 'green' : 'amber'} style={{ fontSize: 14, marginBottom: 8 }}>{a.paymentStatus.toUpperCase()}</Badge>
+                        <Badge color={a.paymentStatus === 'paid' ? 'green' : 'amber'} style={{ fontSize: 14, marginBottom: 8 }}>{String(a.paymentStatus || 'pending').toUpperCase()}</Badge>
                         <br />
-                        <Badge color={a.status === 'confirmed' ? 'blue' : a.status === 'completed' ? 'green' : 'gray'}>{a.status.toUpperCase()}</Badge>
+                        <Badge color={a.status === 'confirmed' ? 'blue' : a.status === 'completed' ? 'green' : 'gray'}>{String(a.status || 'pending').toUpperCase()}</Badge>
                       </div>
                     </div>
-                    {a.prescription && (
+                    {typeof a.prescription === 'string' && a.prescription && (
                       <div style={{ background: COLORS.primaryLight, padding: 15, borderRadius: 12, marginTop: 20, border: `1px solid ${COLORS.border}` }}>
                         <p style={{ margin: "0 0 8px", fontWeight: 700, color: COLORS.primaryDark }}>Doctor's Prescription:</p>
                         {renderPrescriptionTable(a.prescription)}
@@ -335,39 +508,43 @@ export default function PatientDashboard() {
           {tab === "medicines" && (
             <div>
               <h2 style={{ color: COLORS.text, marginBottom: 12, fontSize: 32 }}>Medicine Inventory Check</h2>
-              
+
               {hasSearched && nearbyPharmacies.length === 0 && (
                 <Card style={{ padding: 40, textAlign: "center", marginBottom: 20 }}>
                   <p style={{ fontSize: 20, color: COLORS.textMuted }}>No pharmacies nearby have the requested medicines in stock.</p>
                 </Card>
               )}
 
-              {(!hasSearched ? mockMedicines : nearbyPharmacies.flatMap(p => 
-                p.matchedMeds.map(m => ({
-                  name: m.name,
-                  pharmacy: p.name,
-                  dist: p.communityName || 'Nearby Sector',
+              {(!hasSearched ? mockMedicines : nearbyPharmacies.flatMap(p => {
+                // Safety: Mongoose may return location as {} if schema was previously object type
+                const safeLocation = typeof p.location === 'string' && p.location ? p.location : null;
+                // const displayAddress = safeLocation || (typeof p.communityName === 'string' ? p.communityName : null) || 'Location not available';
+                return p.matchedMeds.map(m => ({
+                  name: String(m.name || ''),
+                  pharmacy: String(p.name || ''),
+                  // address: displayAddress,       // always a safe string
+                  location: safeLocation,        // null or a string
                   qty: m.stock,
                   price: m.price
-                }))
-              )).map((m, i) => (
+                }));
+              })).map((m, i) => (
                 <Card key={i} style={{ marginBottom: 20, padding: 30 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 20 }}>
                     <div>
                       <p style={{ margin: 0, fontWeight: 700, fontSize: 22, color: COLORS.text }}>💊 {m.name}</p>
-                      <p style={{ margin: "6px 0 0", fontSize: 18, color: COLORS.textMuted }}>Pharmacy: <strong style={{color: COLORS.primaryDark}}>{m.pharmacy}</strong></p>
-                      <p style={{ margin: "4px 0 0", fontSize: 18, color: COLORS.textMuted }}>📍 {m.dist}</p>
+                      <p style={{ margin: "6px 0 0", fontSize: 18, color: COLORS.textMuted }}>Pharmacy: <strong style={{ color: COLORS.primaryDark }}>{m.pharmacy}</strong></p>
+                      {/* <p style={{ margin: "4px 0 0", fontSize: 16, color: COLORS.textMuted }}>📍 {m.address}</p> */}
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <p style={{ margin: 0, fontWeight: 900, fontSize: 32, color: COLORS.primary }}>{m.qty}</p>
                       <p style={{ margin: "4px 0 12px", fontSize: 16, color: COLORS.textMuted }}>units in stock {m.price ? `(₹${m.price}/unit)` : ''}</p>
-                      <Btn small style={{ fontSize: 18, padding: "12px 24px" }}>Get Directions</Btn>
+                      <Btn small style={{ fontSize: 18, padding: "12px 24px" }} onClick={() => setMapModal({ name: m.pharmacy, address: m.address, location: m.location })}>Get Directions 🗺️</Btn>
                     </div>
                   </div>
                 </Card>
               ))}
-              
-              {hasSearched && <Btn variant="outline" onClick={() => {setHasSearched(false); setNearbyPharmacies([]);}} style={{ marginTop: 20 }}>Clear Search</Btn>}
+
+              {hasSearched && <Btn variant="outline" onClick={() => { setHasSearched(false); setNearbyPharmacies([]); }} style={{ marginTop: 20 }}>Clear Search</Btn>}
             </div>
           )}
 
@@ -381,7 +558,7 @@ export default function PatientDashboard() {
                 <Card style={{ padding: 40, display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
                   {!sosActive ? (
                     <>
-                      <div 
+                      <div
                         onClick={() => setSosActive(true)}
                         style={{
                           width: 200,
@@ -410,7 +587,7 @@ export default function PatientDashboard() {
                     </>
                   ) : (
                     <>
-                      <div 
+                      <div
                         style={{
                           width: 200,
                           height: 200,

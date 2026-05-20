@@ -5,6 +5,7 @@ import Badge from '../components/common/Badge';
 import Card from '../components/common/Card';
 import Btn from '../components/common/Btn';
 import { useAuth } from '../context/AuthContext';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import axios from 'axios';
 
 export default function PharmacyDashboard() {
@@ -13,14 +14,40 @@ export default function PharmacyDashboard() {
   const [tab, setTab] = useState("inventory");
   const [inventory, setInventory] = useState([]);
   const [newMed, setNewMed] = useState({ name: "", stock: "", price: "", threshold: 20 });
+  const [locationStr, setLocationStr] = useState(user?.location || '');
+  const [locationStatus, setLocationStatus] = useState('');
 
+  // Auto-capture GPS every time pharmacy logs in — ensures map always shows current location
   useEffect(() => {
-    if (user?._id) {
-      axios.get(`http://localhost:5000/api/auth/inventory/${user._id}`)
-        .then(res => setInventory(res.data))
-        .catch(err => console.error(err));
+    if (!user?._id) return;
+
+    // Fetch inventory
+    axios.get(`http://localhost:5000/api/auth/inventory/${user._id}`)
+      .then(res => setInventory(res.data))
+      .catch(err => console.error(err));
+
+    // Auto-save current GPS location silently
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const coords = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+          setLocationStr(coords);
+          try {
+            await axios.put('http://localhost:5000/api/auth/profile', {
+              userId: user._id,
+              location: coords
+            }, { headers: { 'user-id': user._id } });
+            setLocationStatus(`✅ Live location captured: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          } catch (e) {
+            setLocationStatus('⚠️ Could not auto-save location');
+          }
+        },
+        () => setLocationStatus('⚠️ Location access denied — click "Use My Current Location" manually')
+      );
     }
   }, [user]);
+
 
   const handleLogout = () => {
     logout();
@@ -57,6 +84,31 @@ export default function PharmacyDashboard() {
     setNewMed({ name: "", stock: "", price: "", threshold: 20 });
   };
 
+  const fetchAndSaveGPSLocation = () => {
+    setLocationStatus('Fetching your GPS location...');
+    if (!navigator.geolocation) {
+      setLocationStatus('❌ Geolocation not supported by your browser');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const coords = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+        setLocationStr(coords);
+        try {
+          await axios.put('http://localhost:5000/api/auth/profile', {
+            userId: user._id,
+            location: coords
+          }, { headers: { 'user-id': user._id } });
+          setLocationStatus(`✅ Location saved: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        } catch (e) {
+          setLocationStatus('❌ Failed to save location. Please try again.');
+        }
+      },
+      () => setLocationStatus('❌ Permission denied. Please allow location access and retry.')
+    );
+  };
+
   const tabs = [{ id: "inventory", label: "Inventory", icon: "📦" }, { id: "requests", label: "Patient Requests", icon: "👥" }, { id: "reserve", label: "Reservations", icon: "📋" }];
 
   return (
@@ -68,7 +120,7 @@ export default function PharmacyDashboard() {
           <span style={{ fontWeight: 800, fontSize: 24 }}>{user?.name || "Sharma Medical"} — Pharmacy</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div id="bhashini-translation-widget"></div>
+          <LanguageSwitcher />
           <button onClick={handleLogout} style={{ background: "#ffffff22", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 10, cursor: "pointer", fontSize: 18, fontWeight: 700 }}>Logout</button>
         </div>
       </nav>
@@ -116,6 +168,25 @@ export default function PharmacyDashboard() {
                   <Badge color="amber" dot style={{ fontSize: 14 }}>● {inventory.filter(m => m.status === "low").length} Low</Badge>
                 </div>
               </div>
+              {/* Location Card — fix location for map visibility */}
+              <Card style={{ marginBottom: 24, padding: 24, border: `2px solid ${locationStr ? '#22c55e' : '#f59e0b'}`, background: locationStr ? '#f0fdf4' : '#fffbeb' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 800, fontSize: 18, color: COLORS.text }}>📍 Pharmacy Location</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 14, color: COLORS.textMuted }}>
+                      {locationStr ? `Saved: ${locationStr}` : 'No location saved yet — patients cannot find you on the map!'}
+                    </p>
+                    {locationStatus && <p style={{ margin: '6px 0 0', fontSize: 14, fontWeight: 600, color: locationStatus.startsWith('✅') ? '#16a34a' : locationStatus.startsWith('❌') ? '#dc2626' : '#b45309' }}>{locationStatus}</p>}
+                  </div>
+                  <button
+                    onClick={fetchAndSaveGPSLocation}
+                    style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 22px', fontWeight: 700, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+                  >
+                    📡 Use My Current Location
+                  </button>
+                </div>
+              </Card>
+
               <Card style={{ marginBottom: 30, padding: 30 }}>
                 <h4 style={{ margin: "0 0 20px", fontSize: 22 }}>Add New Medicine</h4>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 15, alignItems: "end" }}>

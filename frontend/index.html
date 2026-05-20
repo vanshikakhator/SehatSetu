@@ -4,11 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SehatSetu</title>
-    <!-- Bhashini Translation Widget Integration -->
-    <script src="https://translation-plugin.bhashini.co.in/v2/website_translation_utility.js"></script>
-    <!-- Razorpay Checkout Integration -->
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <title>SehatSetu — Rural Healthcare Platform</title>
+    <!-- Razorpay is loaded dynamically in PaymentModal only when needed -->
+    <!-- Hide Google Translate top bar while keeping translation active -->
+    <style>
+      .goog-te-banner-frame, .goog-te-balloon-frame { display: none !important; }
+      body { top: 0 !important; }
+      .skiptranslate { display: none !important; }
+      .goog-te-gadget { font-size: 0 !important; }
+      .goog-te-gadget .goog-te-combo { display: none; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
