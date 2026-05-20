@@ -29,9 +29,8 @@ const UserSchema = new mongoose.Schema({
     type: Number,
   },
   location: {
-    lat: Number,
-    lng: Number,
-    address: String
+    type: String,
+    default: null
   },
   communityName: String,
   inventory: [{

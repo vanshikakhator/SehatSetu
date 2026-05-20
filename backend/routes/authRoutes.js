@@ -196,6 +196,7 @@ router.get('/pharmacies/search', async (req, res) => {
           _id: p._id,
           name: p.name,
           communityName: p.communityName,
+          location: p.location || null,   // ← actual location the pharmacy entered at signup
           matchedMeds: matchedMeds
         });
       }
