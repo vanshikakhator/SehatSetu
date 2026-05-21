@@ -109,7 +109,7 @@ export default function PharmacyDashboard() {
     );
   };
 
-  const tabs = [{ id: "inventory", label: "Inventory", icon: "📦" }, { id: "requests", label: "Patient Requests", icon: "👥" }, { id: "reserve", label: "Reservations", icon: "📋" }];
+  const tabs = [{ id: "inventory", label: "Inventory", icon: "📦" }, { id: "requests", label: "Patient Requests", icon: "👥" }];
 
   return (
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", minHeight: "100vh", background: "#f0faf5" }}>
@@ -170,19 +170,42 @@ export default function PharmacyDashboard() {
               </div>
               {/* Location Card — fix location for map visibility */}
               <Card style={{ marginBottom: 24, padding: 24, border: `2px solid ${locationStr ? '#22c55e' : '#f59e0b'}`, background: locationStr ? '#f0fdf4' : '#fffbeb' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 800, fontSize: 18, color: COLORS.text }}>📍 Pharmacy Location</p>
-                    <p style={{ margin: '4px 0 0', fontSize: 14, color: COLORS.textMuted }}>
-                      {locationStr ? `Saved: ${locationStr}` : 'No location saved yet — patients cannot find you on the map!'}
-                    </p>
-                    {locationStatus && <p style={{ margin: '6px 0 0', fontSize: 14, fontWeight: 600, color: locationStatus.startsWith('✅') ? '#16a34a' : locationStatus.startsWith('❌') ? '#dc2626' : '#b45309' }}>{locationStatus}</p>}
-                  </div>
+                <p style={{ margin: '0 0 12px', fontWeight: 800, fontSize: 18, color: COLORS.text }}>📍 Pharmacy Location (used for "Get Directions" on patient app)</p>
+                <p style={{ margin: '0 0 16px', fontSize: 14, color: COLORS.textMuted }}>
+                  {locationStr ? `Currently saved: ${locationStr}` : '⚠️ No location saved — patients cannot find you on the map!'}
+                </p>
+                {locationStatus && <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 600, color: locationStatus.startsWith('✅') ? '#16a34a' : locationStatus.startsWith('❌') ? '#dc2626' : '#b45309' }}>{locationStatus}</p>}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {/* Manual lat,lng entry */}
+                  <input
+                    placeholder="Enter lat,lng manually (e.g. 28.6139,77.2090)"
+                    value={locationStr}
+                    onChange={e => setLocationStr(e.target.value)}
+                    style={{ flex: 1, minWidth: 220, padding: '12px 16px', borderRadius: 10, border: '1.5px solid #d1d5db', fontSize: 15, boxSizing: 'border-box' }}
+                  />
+                  <button
+                    onClick={async () => {
+                      const val = locationStr.trim();
+                      if (!val) return;
+                      try {
+                        await axios.put('http://localhost:5000/api/auth/profile', {
+                          userId: user._id,
+                          location: val
+                        }, { headers: { 'user-id': user._id } });
+                        setLocationStatus('✅ Location saved successfully!');
+                      } catch (e) {
+                        setLocationStatus('❌ Failed to save. Try again.');
+                      }
+                    }}
+                    style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 20px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+                  >
+                    💾 Save
+                  </button>
                   <button
                     onClick={fetchAndSaveGPSLocation}
-                    style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 22px', fontWeight: 700, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+                    style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 20px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
                   >
-                    📡 Use My Current Location
+                    📡 Use GPS
                   </button>
                 </div>
               </Card>

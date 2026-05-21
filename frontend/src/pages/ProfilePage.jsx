@@ -15,7 +15,7 @@ export default function ProfilePage() {
     phone: user?.phone || '',
     specialization: user?.specialization || '',
     consultationFee: user?.consultationFee || '',
-    location: user?.location || { address: '' },
+    location: user?.location || '',
     communityName: user?.communityName || '',
     healthRecord: user?.healthRecord || {
       bloodGroup: '',
@@ -47,12 +47,34 @@ export default function ProfilePage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.put('http://localhost:5000/api/auth/profile', {
+      // Build payload — only send fields relevant to the user's role
+      const payload = {
         userId: user._id,
-        ...formData
+        name: formData.name,
+        phone: formData.phone,
+      };
+
+      if (user?.role === 'patient') {
+        payload.healthRecord = formData.healthRecord;
+        // Don't send location for patients — schema expects string, form has text input
+      }
+      if (user?.role === 'doctor') {
+        payload.specialization = formData.specialization;
+        payload.consultationFee = formData.consultationFee;
+      }
+      if (user?.role === 'pharmacy') {
+        // location for pharmacy is a plain string (lat,lng)
+        payload.location = typeof formData.location === 'string' ? formData.location : '';
+      }
+      if (user?.role === 'worker') {
+        payload.communityName = formData.communityName;
+      }
+
+      const res = await axios.put('http://localhost:5000/api/auth/profile', payload, {
+        headers: { 'user-id': user._id }
       });
-      updateUser(res.data);
-      setMessage('Profile updated successfully!');
+      updateUser({ ...user, ...res.data });
+      setMessage('Profile updated successfully! ✅');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       setMessage('Failed to update profile.');
@@ -108,8 +130,15 @@ export default function ProfilePage() {
             {user?.role === 'pharmacy' && (
               <div style={{ marginBottom: 40 }}>
                 <h3 style={{ marginBottom: 24, fontSize: 24, color: COLORS.primary }}>Pharmacy Location</h3>
-                <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Physical Address</p>
-                <textarea name="location.address" value={formData.location.address} onChange={handleChange} style={{ width: "100%", padding: 15, borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 18, minHeight: 100 }} />
+                <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Coordinates (lat,lng)</p>
+                <input
+                  name="location"
+                  value={typeof formData.location === 'string' ? formData.location : ''}
+                  onChange={handleChange}
+                  placeholder="e.g. 28.6139,77.2090"
+                  style={{ width: "100%", padding: 15, borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 18, boxSizing: 'border-box' }}
+                />
+                <p style={{ margin: "8px 0 0", fontSize: 13, color: COLORS.textMuted }}>This is shown to patients in the "Get Directions" map.</p>
               </div>
             )}
 

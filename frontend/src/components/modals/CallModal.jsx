@@ -1,82 +1,144 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { COLORS } from '../../constants';
 import Btn from '../common/Btn';
+import ChatPanel from '../common/ChatPanel';
 import axios from 'axios';
+
+/**
+ * Network tier detection:
+ *  "video"  — good connection (4G / WiFi / downlink ≥ 2 Mbps)
+ *  "voice"  — low data (3G / 2G / downlink 0.3–2 Mbps)
+ *  "offline" — no connectivity
+ */
+function detectNetworkTier() {
+  if (!navigator.onLine) return 'offline';
+
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (!conn) return 'video'; // unknown → assume fine
+
+  const { effectiveType, downlink } = conn;
+
+  if (effectiveType === 'slow-2g' || effectiveType === '2g' || downlink < 0.3) {
+    return 'voice'; // too slow for video
+  }
+  if (effectiveType === '3g' || (downlink >= 0.3 && downlink < 2)) {
+    return 'voice'; // borderline — voice only to be safe
+  }
+  // 4g / wifi — good
+  return 'video';
+}
 
 export default function CallModal({ user, partnerName, appointmentId, type, onClose }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const streamRef = useRef(null);
+
+  const [callStatus, setCallStatus] = useState('connecting');
   const [localStream, setLocalStream] = useState(null);
-  const [callStatus, setCallStatus] = useState("connecting"); // connecting, active, ended
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(type === 'voice');
-  const [networkQuality, setNetworkQuality] = useState("high"); // high, low
-  const [medicines, setMedicines] = useState([{ name: "", dosage: "", freq: "" }]);
+  const [networkTier, setNetworkTier] = useState(() => detectNetworkTier());
+  const [medicines, setMedicines] = useState([{ name: '', dosage: '', freq: '' }]);
   const [saving, setSaving] = useState(false);
   const [partnerConnected, setPartnerConnected] = useState(user?.role === 'patient');
+  const [showChat, setShowChat] = useState(false);
 
+  // ── Network monitoring ──────────────────────────────────────────────────────
   useEffect(() => {
-    let stream = null;
-    async function startCamera() {
-      try {
-        // Ensure audio is true for "voice nhi ho rha hai" fix
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setLocalStream(stream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        setCallStatus("active");
-      } catch (err) {
-        console.error("Error accessing camera:", err);
-        setCallStatus("failed");
-      }
-    }
-    startCamera();
-
-    // Network Fallback Simulation: if quality drops, turn off video
-    if (networkQuality === "low") {
-      setVideoOff(true);
-    }
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+    const update = () => {
+      const tier = detectNetworkTier();
+      setNetworkTier(tier);
+      if (tier !== 'video') {
+        setVideoOff(true);
+      } else if (type !== 'voice') {
+        setVideoOff(false); // Turn video back on if network is good
       }
     };
-  }, [networkQuality]);
 
+    update();
+
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+
+    // Listen for connection changes if supported
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn) conn.addEventListener('change', update);
+
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+      if (conn) conn.removeEventListener('change', update);
+    };
+  }, []);
+
+  // ── Media stream — based on type prop AND network tier ─────────────────────
   useEffect(() => {
-    if (localStream && remoteVideoRef.current) {
+    let stream = null;
+    // Voice type or poor network → audio only; good network + video type → video+audio
+    const needVideo = type !== 'voice' && networkTier === 'video';
+
+    async function startMedia() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: needVideo,
+          audio: true
+        });
+        streamRef.current = stream;
+        setLocalStream(stream);
+        if (needVideo && localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        setCallStatus('active');
+        if (!needVideo) setVideoOff(true);
+      } catch (err) {
+        console.warn('Video failed, falling back to audio-only:', err.message);
+        try {
+          // Video failed → retry audio only
+          stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          streamRef.current = stream;
+          setLocalStream(stream);
+          setVideoOff(true);
+          setCallStatus('active');
+        } catch (audioErr) {
+          console.error('Audio also failed:', audioErr.message);
+          setCallStatus('failed');
+        }
+      }
+    }
+
+    startMedia();
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [networkTier, type]);
+
+  // Mirror local stream to remote video (simulated)
+  useEffect(() => {
+    if (localStream && remoteVideoRef.current && !videoOff && partnerConnected) {
       remoteVideoRef.current.srcObject = localStream;
     }
-  }, [localStream, partnerConnected, videoOff]);
+  }, [localStream, videoOff, partnerConnected]);
 
+  // ── Poll appointment status ─────────────────────────────────────────────────
   useEffect(() => {
     if (!appointmentId) return;
     const interval = setInterval(async () => {
       try {
         const res = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
-        const currentAppt = res.data.find(a => a._id === appointmentId);
-        if (currentAppt) {
-          if (currentAppt.status === 'completed') {
-            onClose();
-          } else if (user.role === 'doctor') {
-            if (currentAppt.status === 'confirmed') {
-              alert("The patient declined the call.");
-              onClose();
-            } else if (currentAppt.status === 'active') {
-              setPartnerConnected(true);
-            }
-          } else if (user.role === 'patient') {
-            if (currentAppt.status === 'confirmed') {
-              alert("The doctor ended the call.");
-              onClose();
-            }
-          }
+        const appt = res.data.find(a => a._id === appointmentId);
+        if (!appt) return;
+        if (appt.status === 'completed') return onClose();
+        if (user.role === 'doctor') {
+          if (appt.status === 'confirmed') { alert('Patient declined the call.'); onClose(); }
+          else if (appt.status === 'active') setPartnerConnected(true);
+        } else if (user.role === 'patient') {
+          if (appt.status === 'confirmed') { alert('Doctor ended the call.'); onClose(); }
         }
-      } catch (err) {
-        console.error("Error polling call status", err);
-      }
+      } catch (err) { console.error('Poll error:', err); }
     }, 3000);
     return () => clearInterval(interval);
   }, [appointmentId, user, onClose]);
@@ -85,111 +147,220 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
     if (!appointmentId) return;
     setSaving(true);
     try {
-      const presStr = JSON.stringify(medicines.filter(m => m.name.trim() !== ""));
+      const presStr = JSON.stringify(medicines.filter(m => m.name.trim() !== ''));
       await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, { prescription: presStr });
-      alert("Prescription saved and sent to patient!");
+      alert('Prescription saved and sent to patient!');
       onClose();
-    } catch (err) {
-      alert("Failed to save prescription");
-    } finally {
-      setSaving(false);
-    }
+    } catch { alert('Failed to save prescription'); }
+    finally { setSaving(false); }
   };
 
   const handleEndCall = async () => {
     if (appointmentId) {
       try {
-        const presStr = JSON.stringify(medicines.filter(m => m.name.trim() !== ""));
-        await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, { prescription: presStr === "[]" ? "Consultation completed." : presStr });
-      } catch (err) {
-        console.error(err);
-      }
+        const presStr = JSON.stringify(medicines.filter(m => m.name.trim() !== ''));
+        await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, {
+          prescription: presStr === '[]' ? 'Consultation completed.' : presStr
+        });
+      } catch (err) { console.error(err); }
     }
     onClose();
   };
 
+  const toggleMute = () => {
+    setMuted(prev => {
+      const newMuted = !prev;
+      streamRef.current?.getAudioTracks().forEach(t => { t.enabled = !newMuted; });
+      return newMuted;
+    });
+  };
+
+  // ── UI helpers ──────────────────────────────────────────────────────────────
+  const isVideo = networkTier === 'video' && type !== 'voice' && !videoOff;
+  const isOffline = networkTier === 'offline';
+
+  const networkBadge = {
+    video:   { icon: '📶', label: 'Good Signal — Video Call', color: '#064e3b', bg: '#d1fae5' },
+    voice:   { icon: '⚠️', label: 'Low Data — Voice Call Only', color: '#78350f', bg: '#fef3c7' },
+    offline: { icon: '📴', label: 'OFFLINE — Use Chat Below', color: '#7f1d1d', bg: '#fee2e2' }
+  }[networkTier];
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-      <div style={{ width: "95%", maxWidth: 1200, height: "90vh", position: "relative", background: "#1a1a1a", borderRadius: 24, overflow: "hidden", display: "flex" }}>
-        
-        {/* Call Area */}
-        <div style={{ flex: user?.role === 'doctor' ? 0.7 : 1, position: "relative", display: "flex", flexDirection: "column", background: "#222" }}>
-          <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", overflow: "hidden", background: "#000" }}>
-            {callStatus === "active" ? (
-              <>
-                {/* Simulated Remote Video using local stream */}
-                {!videoOff && partnerConnected && (
-                  <video ref={remoteVideoRef} autoPlay playsInline style={{ position: "absolute", width: "100%", height: "100%", objectFit: "cover" }} />
-                )}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+      <div style={{ width: '97%', maxWidth: 1300, height: '92vh', position: 'relative', background: '#0f172a', borderRadius: 24, overflow: 'hidden', display: 'flex' }}>
 
-                {/* Subtitle & details overlays */}
-                {(!partnerConnected || videoOff) ? (
-                  <div style={{ textAlign: "center", zIndex: 2, background: "rgba(0,0,0,0.6)", padding: 30, borderRadius: 20 }}>
-                    <div style={{ width: 120, height: 120, borderRadius: "50%", background: COLORS.primary, fontSize: 48, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-                      {partnerName?.[0] || "P"}
-                    </div>
-                    <h2 style={{ fontSize: 32, margin: 0 }}>{partnerName}</h2>
-                    <p style={{ opacity: 0.8, fontSize: 18, margin: "10px 0 0" }}>
-                      {!partnerConnected && user?.role === 'doctor' ? "Waiting for patient to join..." : "Audio Call Active (Low Bandwidth Mode)"}
-                    </p>
-                  </div>
-                ) : (
-                  <div style={{ position: "absolute", top: 20, left: 20, zIndex: 2, background: "rgba(0,0,0,0.6)", padding: "10px 20px", borderRadius: 30 }}>
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>🟢 Connected to {partnerName}</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <p style={{ zIndex: 2 }}>{callStatus === "connecting" ? "Initializing camera..." : "Call Failed"}</p>
+        {/* ── Left: Call Area ── */}
+        <div style={{ flex: showChat ? 0.55 : (user?.role === 'doctor' ? 0.68 : 1), display: 'flex', flexDirection: 'column', transition: 'flex 0.3s' }}>
+
+          {/* Network Banner */}
+          <div style={{ padding: '10px 20px', background: networkBadge.bg, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 18 }}>{networkBadge.icon}</span>
+            <span style={{ color: networkBadge.color, fontWeight: 700, fontSize: 14 }}>{networkBadge.label}</span>
+            {isOffline && (
+              <button
+                onClick={() => { setShowChat(true); }}
+                style={{ marginLeft: 'auto', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
+              >
+                Open Chat 💬
+              </button>
             )}
+            {networkTier === 'voice' && (
+              <span style={{ marginLeft: 'auto', color: '#92400e', fontSize: 12 }}>
+                Video disabled to save bandwidth
+              </span>
+            )}
+          </div>
 
-            {/* Local Video Overlay */}
-            {!videoOff && (
-              <div style={{ position: "absolute", bottom: 20, right: 20, width: 240, height: 180, background: "#000", borderRadius: 16, overflow: "hidden", border: "2px solid #fff" }}>
-                <video ref={localVideoRef} autoPlay playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
+          {/* Video / Avatar Area */}
+          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000d1a', overflow: 'hidden' }}>
+            {callStatus === 'active' ? (
+              <>
+                {/* Remote video — always mounted, toggled via display to preserve stream */}
+                <video ref={remoteVideoRef} autoPlay playsInline style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', display: (isVideo && partnerConnected) ? 'block' : 'none' }} />
+
+                {/* Avatar shown when audio-only or partner not yet joined */}
+                {(!isVideo || !partnerConnected) && (
+                  <div style={{ textAlign: 'center', zIndex: 2, background: 'rgba(0,0,0,0.5)', padding: 50, borderRadius: 28, backdropFilter: 'blur(12px)' }}>
+                    <div style={{
+                      width: 140, height: 140, borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${COLORS.primary} 0%, #7c3aed 100%)`,
+                      fontSize: 58, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      margin: '0 auto 24px', boxShadow: '0 0 50px rgba(34,197,94,0.25)'
+                    }}>
+                      {partnerName?.[0] || 'P'}
+                    </div>
+                    <h2 style={{ fontSize: 28, margin: 0 }}>{partnerName}</h2>
+                    <p style={{ margin: '12px 0 0', opacity: 0.8, fontSize: 16 }}>
+                      {!partnerConnected && user?.role === 'doctor'
+                        ? '⏳ Waiting for patient to join...'
+                        : networkTier === 'voice'
+                          ? '🎙️ Voice Call Active'
+                          : isOffline
+                            ? '📴 Offline — Use chat to communicate'
+                            : 'Connected'}
+                    </p>
+
+                    {/* Audio wave animation for voice mode */}
+                    {networkTier === 'voice' && !isOffline && (
+                      <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 5, height: 40 }}>
+                        {[0.4, 0.7, 1, 0.7, 0.4, 0.6, 0.9, 0.6, 0.4].map((h, i) => (
+                          <div key={i} style={{
+                            width: 5, borderRadius: 4,
+                            background: COLORS.primary,
+                            height: `${h * 36}px`,
+                            animation: `audioBar ${0.7 + i * 0.08}s ${i * 0.1}s ease-in-out infinite alternate`,
+                            opacity: 0.85
+                          }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Connected label for video mode */}
+                {isVideo && partnerConnected && (
+                  <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 2, background: 'rgba(0,0,0,0.6)', padding: '8px 18px', borderRadius: 30, backdropFilter: 'blur(8px)' }}>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>🟢 Connected · {partnerName}</span>
+                  </div>
+                )}
+
+                {/* Local video PiP */}
+                <div style={{ position: 'absolute', bottom: 20, right: 20, width: 200, height: 150, background: '#000', borderRadius: 14, overflow: 'hidden', border: '2px solid rgba(255,255,255,0.25)', boxShadow: '0 4px 20px rgba(0,0,0,0.6)', display: isVideo ? 'block' : 'none' }}>
+                  <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
+                </div>
+              </>
+            ) : callStatus === 'failed' ? (
+              <div style={{ textAlign: 'center', padding: 50 }}>
+                <div style={{ fontSize: 52, marginBottom: 16 }}>⚠️</div>
+                <p style={{ fontSize: 20, fontWeight: 700 }}>Could not access microphone</p>
+                <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 24 }}>Check browser permissions and try again</p>
+                <Btn onClick={() => setShowChat(true)}>Use Chat Instead 💬</Btn>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 40, animation: 'spin 1.5s linear infinite', display: 'inline-block' }}>🔄</div>
+                <p style={{ marginTop: 16 }}>Starting call...</p>
               </div>
             )}
           </div>
 
           {/* Controls */}
-          <div style={{ height: 100, background: "#111", display: "flex", alignItems: "center", justifyContent: "center", gap: 30 }}>
-            <button onClick={() => setMuted(!muted)} style={{ background: muted ? COLORS.danger : "#333", border: "none", borderRadius: "50%", width: 60, height: 60, color: "#fff", cursor: "pointer", fontSize: 24 }}>
-              {muted ? "🔇" : "🎤"}
+          <div style={{ height: 86, background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, padding: '0 24px', flexShrink: 0 }}>
+            {/* Mute */}
+            <button onClick={toggleMute} title={muted ? 'Unmute' : 'Mute'} style={{ background: muted ? COLORS.danger : '#334155', border: 'none', borderRadius: '50%', width: 54, height: 54, color: '#fff', cursor: 'pointer', fontSize: 22, transition: 'background 0.2s' }}>
+              {muted ? '🔇' : '🎤'}
             </button>
-            <button onClick={handleEndCall} style={{ background: COLORS.danger, border: "none", borderRadius: 30, padding: "0 40px", height: 60, color: "#fff", cursor: "pointer", fontSize: 20, fontWeight: 800 }}>
+
+            {/* End Call */}
+            <button onClick={handleEndCall} style={{ background: COLORS.danger, border: 'none', borderRadius: 30, padding: '0 32px', height: 54, color: '#fff', cursor: 'pointer', fontSize: 17, fontWeight: 800, boxShadow: '0 4px 16px rgba(239,68,68,0.4)' }}>
               End Call 📞
             </button>
-            <button onClick={() => setVideoOff(!videoOff)} style={{ background: videoOff ? COLORS.danger : "#333", border: "none", borderRadius: "50%", width: 60, height: 60, color: "#fff", cursor: "pointer", fontSize: 24 }}>
-              {videoOff ? "❌" : "📷"}
+
+            {/* Video toggle — only shown when network is good */}
+            {networkTier === 'video' && type !== 'voice' && (
+              <button onClick={() => setVideoOff(v => !v)} title={videoOff ? 'Enable Camera' : 'Disable Camera'} style={{ background: videoOff ? COLORS.danger : '#334155', border: 'none', borderRadius: '50%', width: 54, height: 54, color: '#fff', cursor: 'pointer', fontSize: 22 }}>
+                {videoOff ? '📷❌' : '📷'}
+              </button>
+            )}
+
+            {/* Chat toggle */}
+            <button onClick={() => setShowChat(c => !c)} title="Chat" style={{ background: showChat ? COLORS.primary : '#334155', border: 'none', borderRadius: '50%', width: 54, height: 54, color: '#fff', cursor: 'pointer', fontSize: 22 }}>
+              💬
             </button>
-            <Btn small variant="ghost" onClick={() => setNetworkQuality(networkQuality === "high" ? "low" : "high")} style={{ fontSize: 14 }}>
-              {networkQuality === "high" ? "Signal: Good" : "Signal: Poor (Audio Only)"}
-            </Btn>
+
+            {/* Network tier indicator */}
+            <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 20, padding: '6px 14px', fontSize: 12, color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              {networkTier === 'video' ? '📶 4G/WiFi' : networkTier === 'voice' ? '⚠️ Low Data' : '📴 Offline'}
+            </div>
           </div>
         </div>
 
-        {/* Prescription Sidebar (Doctor Only) */}
-        {user?.role === 'doctor' && (
-          <div style={{ flex: 0.3, background: "#fff", color: COLORS.text, padding: 30, display: "flex", flexDirection: "column", borderLeft: `1px solid ${COLORS.border}` }}>
-            <h3 style={{ fontSize: 22, marginBottom: 20 }}>📝 Live Prescription</h3>
-            <p style={{ fontSize: 14, color: COLORS.textMuted, marginBottom: 10 }}>Patient: {partnerName}</p>
-            <div style={{ flex: 1, overflowY: "auto", marginBottom: 20, paddingRight: 10 }}>
+        {/* ── Right: Doctor Prescription OR Chat Panel ── */}
+        {user?.role === 'doctor' && !showChat ? (
+          <div style={{ flex: 0.32, background: '#fff', color: COLORS.text, padding: 28, display: 'flex', flexDirection: 'column', borderLeft: '1px solid #e5e7eb', minWidth: 280 }}>
+            <h3 style={{ fontSize: 20, marginBottom: 14, color: COLORS.primaryDark }}>📝 Live Prescription</h3>
+            <p style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 12 }}>Patient: <strong>{partnerName}</strong></p>
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: 14 }}>
               {medicines.map((m, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", background: "#f8fafc", padding: 10, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
-                  <input placeholder="Medicine Name" value={m.name} onChange={(e) => { const newM = [...medicines]; newM[i].name = e.target.value; setMedicines(newM); }} style={{ flex: 2, padding: "10px", borderRadius: 8, border: `1px solid ${COLORS.border}` }} />
-                  <input placeholder="Dosage (e.g. 500mg)" value={m.dosage} onChange={(e) => { const newM = [...medicines]; newM[i].dosage = e.target.value; setMedicines(newM); }} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${COLORS.border}` }} />
-                  <input placeholder="Freq (e.g. 1-0-1)" value={m.freq} onChange={(e) => { const newM = [...medicines]; newM[i].freq = e.target.value; setMedicines(newM); }} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${COLORS.border}` }} />
-                  {medicines.length > 1 && <button onClick={() => setMedicines(medicines.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 18 }}>✕</button>}
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10, background: '#f8fafc', padding: 12, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
+                  <input placeholder="Medicine Name" value={m.name} onChange={e => { const n = [...medicines]; n[i].name = e.target.value; setMedicines(n); }} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${COLORS.border}`, fontSize: 14 }} />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input placeholder="Dosage (500mg)" value={m.dosage} onChange={e => { const n = [...medicines]; n[i].dosage = e.target.value; setMedicines(n); }} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${COLORS.border}`, fontSize: 14 }} />
+                    <input placeholder="Freq (1-0-1)" value={m.freq} onChange={e => { const n = [...medicines]; n[i].freq = e.target.value; setMedicines(n); }} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${COLORS.border}`, fontSize: 14 }} />
+                    {medicines.length > 1 && <button onClick={() => setMedicines(medicines.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: COLORS.danger, cursor: 'pointer', fontSize: 18 }}>✕</button>}
+                  </div>
                 </div>
               ))}
-              <Btn variant="outline" small onClick={() => setMedicines([...medicines, { name: "", dosage: "", freq: "" }])} style={{ width: "100%", marginTop: 10 }}>+ Add Medicine</Btn>
+              <Btn variant="outline" small onClick={() => setMedicines([...medicines, { name: '', dosage: '', freq: '' }])} style={{ width: '100%', marginTop: 6 }}>
+                + Add Medicine
+              </Btn>
             </div>
-            <Btn onClick={handleSavePrescription} disabled={saving} style={{ width: "100%", padding: "18px 0", fontSize: 18 }}>
-              {saving ? "Saving..." : "Save & Finish Call"}
+            <Btn onClick={handleSavePrescription} disabled={saving} style={{ width: '100%', padding: '15px 0', fontSize: 17 }}>
+              {saving ? 'Saving...' : '💾 Save & Finish Call'}
             </Btn>
           </div>
-        )}
+        ) : showChat ? (
+          <div style={{ flex: 0.38, display: 'flex', flexDirection: 'column', minWidth: 300 }}>
+            <ChatPanel
+              appointmentId={appointmentId}
+              userName={user?.name || (user?.role === 'doctor' ? 'Doctor' : 'Patient')}
+              role={user?.role}
+              partnerName={partnerName}
+              isOffline={isOffline}
+            />
+          </div>
+        ) : null}
       </div>
+
+      <style>{`
+        @keyframes audioBar {
+          from { opacity: 0.4; transform: scaleY(0.6); }
+          to { opacity: 1; transform: scaleY(1); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

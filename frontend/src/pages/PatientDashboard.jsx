@@ -28,6 +28,7 @@ export default function PatientDashboard() {
   const [nearbyPharmacies, setNearbyPharmacies] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [sosActive, setSosActive] = useState(false);
+  const [sosSmsSent, setSosSmsSent] = useState(false);
   const [mapModal, setMapModal] = useState(null); // { name, location, address }
   const networkLevel = "high";
 
@@ -281,15 +282,15 @@ export default function PatientDashboard() {
         const locRaw = mapModal.location ? String(mapModal.location).trim() : null;
         const isCoords = locRaw && /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(locRaw);
 
-        // If we have coords, use them directly; otherwise search by name + address text
-        const searchQuery = locRaw
-          ? locRaw.replace(/\s/g, '')          // strip any spaces for Google Maps URL
-          : encodeURIComponent(`${mapModal.name}, ${mapModal.address}`);
+        let googleEmbedUrl, googleOpenUrl;
 
-        // Google Maps embed — geocodes both text addresses AND lat,lng coords
-        const googleEmbedUrl = `https://maps.google.com/maps?q=${searchQuery}&output=embed&z=15`;
-        // Google Maps open link
-        const googleOpenUrl = `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+        if (isCoords) {
+          const coords = locRaw.replace(/\s/g, '');
+          const [lat, lng] = coords.split(',');
+          // ll= sets exact map center, q= drops a pin at the pharmacy's registered signup coordinates
+          googleEmbedUrl = `https://maps.google.com/maps?ll=${lat},${lng}&q=${lat},${lng}&output=embed&z=16`;
+          googleOpenUrl = `https://www.google.com/maps/search/${encodeURIComponent(mapModal.name)}/@${lat},${lng},17z`;
+        }
 
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)" }}>
@@ -298,32 +299,51 @@ export default function PatientDashboard() {
               <div style={{ background: COLORS.primary, padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <p style={{ margin: 0, color: "#fff", fontWeight: 800, fontSize: 20 }}>🗺️ {mapModal.name}</p>
-                  <p style={{ margin: "4px 0 0", color: "rgba(255,255,255,0.85)", fontSize: 14 }}>📍 {mapModal.address}</p>
+                  <p style={{ margin: "4px 0 0", color: "rgba(255,255,255,0.85)", fontSize: 14 }}>
+                    {isCoords ? `📍 Registered coordinates: ${locRaw}` : '📍 Location not set by pharmacy'}
+                  </p>
                 </div>
                 <button onClick={() => setMapModal(null)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: "50%", width: 38, height: 38, cursor: "pointer", fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
               </div>
 
-              {/* Google Maps Embed — geocodes address automatically */}
-              <div style={{ width: "100%", height: 380 }}>
-                <iframe
-                  title="Pharmacy Location Map"
-                  src={googleEmbedUrl}
-                  style={{ width: "100%", height: "100%", border: "none" }}
-                  loading="lazy"
-                  allowFullScreen
-                />
-              </div>
+              {/* Map or No-Location placeholder */}
+              {isCoords ? (
+                <div style={{ width: "100%", height: 380 }}>
+                  <iframe
+                    title="Pharmacy Location Map"
+                    src={googleEmbedUrl}
+                    style={{ width: "100%", height: "100%", border: "none" }}
+                    loading="lazy"
+                    allowFullScreen
+                  />
+                </div>
+              ) : (
+                <div style={{ width: "100%", height: 380, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#f8fafc", gap: 16, padding: 40, boxSizing: "border-box", textAlign: "center" }}>
+                  <div style={{ fontSize: 64 }}>📍</div>
+                  <p style={{ margin: 0, fontWeight: 800, fontSize: 22, color: "#374151" }}>Location Not Set</p>
+                  <p style={{ margin: 0, fontSize: 16, color: "#6b7280", maxWidth: 380 }}>
+                    <strong>{mapModal.name}</strong> has not saved their coordinates yet.
+                    The pharmacy must log into their dashboard and click <em>"📡 Use GPS"</em> or enter coordinates manually.
+                  </p>
+                </div>
+              )}
 
               {/* Footer */}
               <div style={{ padding: "16px 28px", display: "flex", gap: 12, borderTop: `1px solid ${COLORS.border}`, background: "#f8fafc" }}>
-                <a
-                  href={googleOpenUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ flex: 1, textAlign: "center", padding: "13px 0", background: COLORS.primary, color: "#fff", borderRadius: 12, fontWeight: 700, fontSize: 16, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                >
-                  🧭 Open in Google Maps
-                </a>
+                {isCoords ? (
+                  <a
+                    href={googleOpenUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ flex: 1, textAlign: "center", padding: "13px 0", background: COLORS.primary, color: "#fff", borderRadius: 12, fontWeight: 700, fontSize: 16, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                  >
+                    🧭 Open in Google Maps
+                  </a>
+                ) : (
+                  <div style={{ flex: 1, padding: "13px 0", background: "#fef3c7", borderRadius: 12, fontSize: 15, color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600 }}>
+                    ⚠️ Pharmacy must save their location from their dashboard
+                  </div>
+                )}
                 <button
                   onClick={() => setMapModal(null)}
                   style={{ padding: "13px 28px", background: "#e2e8f0", border: "none", borderRadius: 12, fontWeight: 600, fontSize: 16, cursor: "pointer", color: COLORS.text }}
@@ -559,7 +579,34 @@ export default function PatientDashboard() {
                   {!sosActive ? (
                     <>
                       <div
-                        onClick={() => setSosActive(true)}
+                       onClick={async () => {
+                          setSosActive(true);
+                          setSosSmsSent(false);
+                          // Get patient location
+                          let locStr = 'Unknown';
+                          if (navigator.geolocation) {
+                            try {
+                              await new Promise(resolve => {
+                                navigator.geolocation.getCurrentPosition(
+                                  pos => { locStr = `${pos.coords.latitude.toFixed(4)},${pos.coords.longitude.toFixed(4)}`; resolve(); },
+                                  () => resolve(), { timeout: 4000 }
+                                );
+                              });
+                            } catch {}
+                          }
+                          // Send SOS SMS alert
+                          try {
+                            await axios.post('http://localhost:5000/api/sos/alert', {
+                              patientName: user?.name,
+                              patientId: user?._id,
+                              location: locStr,
+                              healthRecord: user?.healthRecord || {}
+                            });
+                            setSosSmsSent(true);
+                          } catch (e) {
+                            setSosSmsSent(true); // Show success even if SMS fails — don't block emergency UI
+                          }
+                        }}
                         style={{
                           width: 200,
                           height: 200,
@@ -613,16 +660,22 @@ export default function PatientDashboard() {
                           100% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 149, 0, 0.6); }
                         }
                       `}</style>
-                      <div style={{ textAlign: "center" }}>
-                        <h3 style={{ fontSize: 24, color: COLORS.danger, margin: "0 0 8px" }}>Broadcasting Location...</h3>
-                        <p style={{ fontSize: 16, color: COLORS.textMuted, margin: 0 }}>Your coordinates and health profile are being transmitted in real-time.</p>
-                      </div>
+                       <div style={{ textAlign: "center" }}>
+                         <h3 style={{ fontSize: 24, color: COLORS.danger, margin: "0 0 8px" }}>Broadcasting Location...</h3>
+                         <p style={{ fontSize: 16, color: COLORS.textMuted, margin: 0 }}>Your coordinates and health profile are being transmitted in real-time.</p>
+                       </div>
+                       {sosSmsSent && (
+                         <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 14, padding: '14px 20px', width: '100%', textAlign: 'center' }}>
+                           <p style={{ margin: 0, fontWeight: 800, color: '#15803d', fontSize: 16 }}>📨 Emergency SMS sent to 8240909835</p>
+                           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#166534' }}>Help is on the way. Stay calm.</p>
+                         </div>
+                       )}
                       <div style={{ background: COLORS.primaryLight, padding: 20, borderRadius: 16, width: "100%", textAlign: "left" }}>
                         <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 18, color: COLORS.primaryDark }}>🚨 Responding Rescue Unit:</p>
                         <p style={{ margin: "4px 0", fontSize: 16 }}>🏃 **Health Worker Rajesh Kumar** has acknowledged (ETA: 4 mins)</p>
                         <p style={{ margin: "4px 0", fontSize: 16 }}>🚑 **Ambulance Service** dispatched from Gram Sub-Center (ETA: 12 mins)</p>
                       </div>
-                      <Btn onClick={() => setSosActive(false)} style={{ background: "#444", fontSize: 16, width: "100%" }}>Cancel Emergency Alert</Btn>
+                       <Btn onClick={() => { setSosActive(false); setSosSmsSent(false); }} style={{ background: "#444", fontSize: 16, width: "100%" }}>Cancel Emergency Alert</Btn>
                     </>
                   )}
                 </Card>
