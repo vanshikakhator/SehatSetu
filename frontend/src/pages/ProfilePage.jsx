@@ -55,7 +55,10 @@ export default function ProfilePage() {
       };
 
       if (user?.role === 'patient') {
-        payload.healthRecord = formData.healthRecord;
+        const cleanedHealthRecord = { ...formData.healthRecord };
+        if (cleanedHealthRecord.age === '') delete cleanedHealthRecord.age;
+        if (cleanedHealthRecord.weight === '') delete cleanedHealthRecord.weight;
+        payload.healthRecord = cleanedHealthRecord;
         // Don't send location for patients — schema expects string, form has text input
       }
       if (user?.role === 'doctor') {

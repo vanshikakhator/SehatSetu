@@ -120,6 +120,48 @@ export default function HealthWorkerDashboard() {
               </Card>
             </div>
           )}
+
+          {tab === "campaigns" && (
+            <div>
+              <h3 style={{ color: COLORS.text, marginBottom: 24, fontSize: 24 }}>📢 Active Health Campaigns</h3>
+              <Card style={{ marginBottom: 20, padding: 30, borderLeft: `6px solid ${COLORS.primary}` }}>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: 22 }}>Polio Vaccination Drive</p>
+                <p style={{ fontSize: 16, color: COLORS.textMuted, margin: "8px 0" }}>Target: Children under 5 years in Sector 4 and 5.</p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Status: <span style={{ color: COLORS.primary }}>Ongoing (Ends in 2 days)</span></p>
+              </Card>
+              <Card style={{ marginBottom: 20, padding: 30, borderLeft: `6px solid ${COLORS.accent}` }}>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: 22 }}>Maternal Health Awareness</p>
+                <p style={{ fontSize: 16, color: COLORS.textMuted, margin: "8px 0" }}>Target: Pregnant women and new mothers.</p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Status: <span style={{ color: COLORS.accent }}>Scheduled (Starts next week)</span></p>
+              </Card>
+            </div>
+          )}
+
+          {tab === "records" && (
+            <div>
+              <h3 style={{ color: COLORS.text, marginBottom: 24, fontSize: 24 }}>📴 Offline Data Sync</h3>
+              <p style={{ fontSize: 18, color: COLORS.textMuted, marginBottom: 30 }}>Records stored on this device waiting for internet connection.</p>
+              <Card style={{ marginBottom: 20, padding: 30 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>Patient Assessment: Ramesh Kumar</p>
+                    <p style={{ fontSize: 16, color: COLORS.textMuted, margin: "4px 0 0" }}>Recorded 2 hours ago</p>
+                  </div>
+                  <Badge color="amber">Pending Sync</Badge>
+                </div>
+              </Card>
+              <Card style={{ marginBottom: 20, padding: 30 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>New Patient Registration: Sita Devi</p>
+                    <p style={{ fontSize: 16, color: COLORS.textMuted, margin: "4px 0 0" }}>Recorded 5 hours ago</p>
+                  </div>
+                  <Badge color="amber">Pending Sync</Badge>
+                </div>
+              </Card>
+              <Btn style={{ marginTop: 10, width: '100%', background: COLORS.primary }}>Sync All Now</Btn>
+            </div>
+          )}
         </main>
       </div>
     </div>

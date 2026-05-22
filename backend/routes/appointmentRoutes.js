@@ -15,6 +15,11 @@ router.post('/book', async (req, res) => {
   const { patientId, doctorId, patientName, doctorName, fee, disease, date, time } = req.body;
 
   try {
+    const existingAppointment = await Appointment.findOne({ doctorId, date, time, status: { $in: ['confirmed', 'pending', 'active', 'calling'] } });
+    if (existingAppointment) {
+      return res.status(400).json({ message: "He is seeing another patient at that time pls change the timing" });
+    }
+
     const orderId = `mock_order_${Date.now()}`;
 
     const appointment = await Appointment.create({

@@ -22,6 +22,8 @@ export default function ChatPanel({ appointmentId, userName, role, partnerName, 
   useEffect(() => {
     if (!appointmentId) return;
 
+    let isActive = true;
+
     const s = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
@@ -29,43 +31,54 @@ export default function ChatPanel({ appointmentId, userName, role, partnerName, 
     });
 
     s.on('connect', () => {
-      setConnected(true);
-      s.emit('join-room', { appointmentId, userName, role });
+      if (isActive) {
+        setConnected(true);
+        s.emit('join-room', { appointmentId, userName, role });
+      }
     });
 
-    s.on('disconnect', () => setConnected(false));
+    s.on('disconnect', () => {
+      if (isActive) setConnected(false);
+    });
 
     // Receive full history on join
     s.on('chat-history', (history) => {
-      setMessages(history);
+      if (isActive) setMessages(history);
     });
 
     // New message from anyone in the room
     s.on('receive-message', (msg) => {
-      setMessages(prev => [...prev, msg]);
-      setPartnerTyping(false);
+      if (isActive) {
+        setMessages(prev => [...prev, msg]);
+        setPartnerTyping(false);
+      }
     });
 
     // Typing indicators
     s.on('user-typing', ({ sender }) => {
-      if (sender !== userName) {
+      if (isActive && sender !== userName) {
         setPartnerTyping(true);
-        setTimeout(() => setPartnerTyping(false), 2000);
+        setTimeout(() => {
+          if (isActive) setPartnerTyping(false);
+        }, 2000);
       }
     });
 
     s.on('user-joined', ({ userName: joinedUser }) => {
-      setMessages(prev => [...prev, {
-        sender: 'system',
-        text: `${joinedUser} joined the chat`,
-        timestamp: new Date().toISOString(),
-        system: true
-      }]);
+      if (isActive) {
+        setMessages(prev => [...prev, {
+          sender: 'system',
+          text: `${joinedUser} joined the chat`,
+          timestamp: new Date().toISOString(),
+          system: true
+        }]);
+      }
     });
 
     setSocket(s);
 
     return () => {
+      isActive = false;
       s.disconnect();
     };
   }, [appointmentId, userName, role]);

@@ -381,7 +381,6 @@ export default function PatientDashboard() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <LanguageSwitcher />
-          <NetworkBadge level={networkLevel} />
           <button onClick={handleLogout} style={{ background: "#ffffff22", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 10, cursor: "pointer", fontSize: 18, fontWeight: 700 }}>Logout</button>
         </div>
       </nav>
@@ -666,7 +665,7 @@ export default function PatientDashboard() {
                        </div>
                        {sosSmsSent && (
                          <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 14, padding: '14px 20px', width: '100%', textAlign: 'center' }}>
-                           <p style={{ margin: 0, fontWeight: 800, color: '#15803d', fontSize: 16 }}>📨 Emergency SMS sent to 8240909835</p>
+                           <p style={{ margin: 0, fontWeight: 800, color: '#15803d', fontSize: 16 }}>📨 Emergency SMS sent</p>
                            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#166534' }}>Help is on the way. Stay calm.</p>
                          </div>
                        )}

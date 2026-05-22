@@ -148,6 +148,23 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
     setSaving(true);
     try {
       const presStr = JSON.stringify(medicines.filter(m => m.name.trim() !== ''));
+      
+      if (!navigator.onLine) {
+        try {
+          const localforage = (await import('localforage')).default;
+          const offlinePrescriptions = await localforage.getItem(`offline_prescriptions_${user._id}`) || [];
+          offlinePrescriptions.push({ appointmentId, prescription: presStr, status: 'queued' });
+          await localforage.setItem(`offline_prescriptions_${user._id}`, offlinePrescriptions);
+          alert('Prescription saved offline! It will sync automatically when you reconnect.');
+          onClose();
+        } catch (err) {
+          alert('Failed to save offline prescription.');
+        } finally {
+          setSaving(false);
+        }
+        return;
+      }
+
       await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, { prescription: presStr });
       alert('Prescription saved and sent to patient!');
       onClose();
@@ -159,9 +176,18 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
     if (appointmentId) {
       try {
         const presStr = JSON.stringify(medicines.filter(m => m.name.trim() !== ''));
-        await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, {
-          prescription: presStr === '[]' ? 'Consultation completed.' : presStr
-        });
+        const finalPres = presStr === '[]' ? 'Consultation completed.' : presStr;
+        
+        if (!navigator.onLine) {
+          const localforage = (await import('localforage')).default;
+          const offlinePrescriptions = await localforage.getItem(`offline_prescriptions_${user._id}`) || [];
+          offlinePrescriptions.push({ appointmentId, prescription: finalPres, status: 'queued' });
+          await localforage.setItem(`offline_prescriptions_${user._id}`, offlinePrescriptions);
+        } else {
+          await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, {
+            prescription: finalPres
+          });
+        }
       } catch (err) { console.error(err); }
     }
     onClose();
@@ -316,8 +342,8 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
         </div>
 
         {/* ── Right: Doctor Prescription OR Chat Panel ── */}
-        {user?.role === 'doctor' && !showChat ? (
-          <div style={{ flex: 0.32, background: '#fff', color: COLORS.text, padding: 28, display: 'flex', flexDirection: 'column', borderLeft: '1px solid #e5e7eb', minWidth: 280 }}>
+        {user?.role === 'doctor' && (
+          <div style={{ flex: 0.32, background: '#fff', color: COLORS.text, padding: 28, display: !showChat ? 'flex' : 'none', flexDirection: 'column', borderLeft: '1px solid #e5e7eb', minWidth: 280 }}>
             <h3 style={{ fontSize: 20, marginBottom: 14, color: COLORS.primaryDark }}>📝 Live Prescription</h3>
             <p style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 12 }}>Patient: <strong>{partnerName}</strong></p>
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: 14 }}>
@@ -339,17 +365,17 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
               {saving ? 'Saving...' : '💾 Save & Finish Call'}
             </Btn>
           </div>
-        ) : showChat ? (
-          <div style={{ flex: 0.38, display: 'flex', flexDirection: 'column', minWidth: 300 }}>
-            <ChatPanel
-              appointmentId={appointmentId}
-              userName={user?.name || (user?.role === 'doctor' ? 'Doctor' : 'Patient')}
-              role={user?.role}
-              partnerName={partnerName}
-              isOffline={isOffline}
-            />
-          </div>
-        ) : null}
+        )}
+
+        <div style={{ flex: 0.38, display: showChat ? 'flex' : 'none', flexDirection: 'column', minWidth: 300 }}>
+          <ChatPanel
+            appointmentId={appointmentId}
+            userName={user?.name || (user?.role === 'doctor' ? 'Doctor' : 'Patient')}
+            role={user?.role}
+            partnerName={partnerName}
+            isOffline={isOffline}
+          />
+        </div>
       </div>
 
       <style>{`

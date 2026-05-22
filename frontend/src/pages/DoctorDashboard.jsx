@@ -29,6 +29,33 @@ export default function DoctorDashboard() {
 
   const fetchAppointments = async () => {
     try {
+      if (navigator.onLine) {
+        try {
+          const localforage = (await import('localforage')).default;
+          const offlinePrescriptions = await localforage.getItem(`offline_prescriptions_${user._id}`) || [];
+          let anySynced = false;
+          
+          for (let p of offlinePrescriptions) {
+            if (p.status === 'queued') {
+              try {
+                await axios.put(`http://localhost:5000/api/appointments/${p.appointmentId}/prescription`, { prescription: p.prescription });
+                p.status = 'synced';
+                anySynced = true;
+              } catch (e) {
+                console.error("Failed to sync prescription", e);
+              }
+            }
+          }
+          
+          if (anySynced) {
+            const remaining = offlinePrescriptions.filter(p => p.status === 'queued');
+            await localforage.setItem(`offline_prescriptions_${user._id}`, remaining);
+          }
+        } catch (err) {
+          console.error("Offline sync error", err);
+        }
+      }
+
       const res = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
       
       const mockAppointments = [

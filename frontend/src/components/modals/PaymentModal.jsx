@@ -73,7 +73,11 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
       setStep(3);
     } catch (err) {
       console.error(err);
-      alert("Booking failed. Please try again.");
+      if (err.response && err.response.data && err.response.data.message) {
+        alert(err.response.data.message);
+      } else {
+        alert("Booking failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
