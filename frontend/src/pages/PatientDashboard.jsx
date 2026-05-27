@@ -13,6 +13,35 @@ import CallModal from '../components/modals/CallModal';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import localforage from 'localforage';
+import stomachIssuesImg from '../assets/stomach-issues-v1.jpg';
+import vaginaImg from '../assets/vagina.jpg';
+import sickKidImg from '../assets/sick-kid-v1.jpg';
+import coughColdImg from '../assets/cough_cold.jpg';
+import skinIssuesImg from '../assets/skin-problems-v1.jpg';
+
+const SPECIALITIES = [
+  { name: 'General Physician', icon: '🩺', fee: 499 },
+  { name: 'Dermatologist', icon: '💆‍♀️', fee: 599 },
+  { name: 'Pediatrician', icon: '👶', fee: 699 },
+  { name: 'Cardiologist', icon: '❤️', fee: 899 },
+  { name: 'Gynecologist', icon: '🚺', fee: 799 },
+  { name: 'Psychiatrist', icon: '🧠', fee: 699 },
+  { name: 'Orthopedic', icon: '🦴', fee: 799 },
+  { name: 'Neurologist', icon: '⚕️', fee: 999 },
+  { name: 'ENT Specialist', icon: '👂', fee: 599 },
+  { name: 'Gastroenterologist', icon: '🏥', fee: 699 },
+  { name: 'Urologist', icon: '💧', fee: 899 }
+];
+
+const SYMPTOMS = [
+  { name: 'Want to lose weight?', spec: 'Dietitian', image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=400&q=80', fee: 600 },
+  { name: 'Stomach & Digestion?', spec: 'Gastroenterologist', image: stomachIssuesImg, fee: 699 },
+  { name: 'Vaginal infections?', spec: 'Gynecologist', image: vaginaImg, fee: 749 },
+  { name: 'Urinary or Kidney issues?', spec: 'Urologist', image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&w=400&q=80', fee: 899 },
+  { name: 'Sick kid?', spec: 'Pediatrician', image: sickKidImg, fee: 799 },
+  { name: 'Fever or cold?', spec: 'General Physician', image: coughColdImg, fee: 499 },
+  { name: 'Skin issues?', spec: 'Dermatologist', image: skinIssuesImg, fee: 599 },
+]
 
 export default function PatientDashboard() {
   const { user, logout } = useAuth();
@@ -31,13 +60,34 @@ export default function PatientDashboard() {
   const [sosSmsSent, setSosSmsSent] = useState(false);
   const [mapModal, setMapModal] = useState(null); // { name, location, address }
   const networkLevel = "high";
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSpecialization, setSelectedSpecialization] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [showCart, setShowCart] = useState(false);
+  const [medicineOrders, setMedicineOrders] = useState([]);
+  const [payAdvanceModal, setPayAdvanceModal] = useState(null); // { orderId, amount }
 
   useEffect(() => {
     fetchAppointments();
     fetchDoctors();
-    const interval = setInterval(fetchAppointments, 5000);
+    if (user && user._id) {
+      fetchMedicineOrders();
+    }
+    const interval = setInterval(() => {
+      fetchAppointments();
+      if (user && user._id) fetchMedicineOrders();
+    }, 5000);
     return () => clearInterval(interval);
   }, [user]);
+
+  const fetchMedicineOrders = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/medicine-orders/patient/${user._id}`);
+      setMedicineOrders(res.data);
+    } catch (err) {
+      console.error("Failed to fetch medicine orders", err);
+    }
+  };
 
   const fetchAppointments = async () => {
     try {
@@ -151,6 +201,7 @@ export default function PatientDashboard() {
     { id: "doctors", label: "Find Doctors", icon: "👨‍⚕️" },
     { id: "appointments", label: "My Appointments", icon: "📅" },
     { id: "medicines", label: "Medicines", icon: "💊" },
+    { id: "orders", label: "Medicine Orders", icon: "📦" },
     { id: "sos", label: "SOS", icon: "🚨" },
   ];
 
@@ -385,6 +436,113 @@ export default function PatientDashboard() {
         </div>
       </nav>
 
+      {/* Cart Modal */}
+      {showCart && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", padding: 30, borderRadius: 20, width: "90%", maxWidth: 600 }}>
+            <h3 style={{ fontSize: 24, margin: "0 0 20px" }}>Your Medicine Request ({cart.length})</h3>
+            {cart.length === 0 ? (
+              <p>Your cart is empty.</p>
+            ) : (
+              <div>
+                {cart.map((item, idx) => (
+                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #ddd" }}>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: "bold" }}>{item.name}</p>
+                      <p style={{ margin: 0, fontSize: 14, color: "#666" }}>{item.pharmacy} • ₹{item.price}/unit</p>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <Btn small onClick={() => {
+                        const newCart = [...cart];
+                        if (newCart[idx].requestedQty > 1) {
+                          newCart[idx].requestedQty--;
+                          setCart(newCart);
+                        } else {
+                          newCart.splice(idx, 1);
+                          setCart(newCart);
+                        }
+                      }}>-</Btn>
+                      <span>{item.requestedQty}</span>
+                      <Btn small onClick={() => {
+                        const newCart = [...cart];
+                        if (newCart[idx].requestedQty < newCart[idx].qty) {
+                          newCart[idx].requestedQty++;
+                          setCart(newCart);
+                        }
+                      }}>+</Btn>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <Btn variant="outline" onClick={() => setShowCart(false)}>Close</Btn>
+              <Btn style={{ flex: 1 }} disabled={cart.length === 0} onClick={async () => {
+                // Group by pharmacy
+                const grouped = cart.reduce((acc, item) => {
+                  if (!acc[item.pharmacyId]) acc[item.pharmacyId] = { pharmacyName: item.pharmacy, items: [] };
+                  acc[item.pharmacyId].items.push(item);
+                  return acc;
+                }, {});
+
+                const ordersToCreate = Object.keys(grouped).map(pharmacyId => {
+                  const pData = grouped[pharmacyId];
+                  const total = pData.items.reduce((sum, it) => sum + (it.price * it.requestedQty), 0);
+                  return {
+                    patientId: user._id,
+                    patientName: user.name,
+                    pharmacyId,
+                    pharmacyName: pData.pharmacyName,
+                    medicines: pData.items.map(it => ({ name: it.name, qty: it.requestedQty, price: it.price })),
+                    totalAmount: total
+                  };
+                });
+
+                try {
+                  await axios.post('http://localhost:5000/api/medicine-orders', ordersToCreate);
+                  alert("Requests sent successfully!");
+                  setCart([]);
+                  setShowCart(false);
+                  fetchMedicineOrders();
+                  setTab("orders");
+                } catch (err) {
+                  alert("Failed to send requests");
+                }
+              }}>Send Request(s)</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advance Payment Modal */}
+      {payAdvanceModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", padding: 30, borderRadius: 20, width: "90%", maxWidth: 400, textAlign: "center" }}>
+            <h3 style={{ fontSize: 24, margin: "0 0 10px" }}>Pay Advance</h3>
+            <p style={{ color: "#666", marginBottom: 20 }}>To {payAdvanceModal.pharmacyName}</p>
+            <div style={{ fontSize: 32, fontWeight: "bold", color: COLORS.primary, marginBottom: 20 }}>₹{payAdvanceModal.amount}</div>
+
+            <input
+              placeholder="Enter UPI ID"
+              style={{ width: "100%", padding: "15px", borderRadius: 10, border: "2px solid " + COLORS.primary, marginBottom: 20, fontSize: 18, boxSizing: "border-box" }}
+            />
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <Btn variant="outline" onClick={() => setPayAdvanceModal(null)}>Cancel</Btn>
+              <Btn style={{ flex: 1, background: "#22c55e" }} onClick={async () => {
+                try {
+                  await axios.post(`http://localhost:5000/api/medicine-orders/${payAdvanceModal.orderId}/pay`);
+                  alert("Advance paid successfully!");
+                  setPayAdvanceModal(null);
+                  fetchMedicineOrders();
+                } catch (err) {
+                  alert("Payment failed");
+                }
+              }}>Pay Now</Btn>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="dashboard-layout">
         <aside className="sidebar" style={{ width: 300 }}>
           {tabs.map(t => (
@@ -446,7 +604,18 @@ export default function PatientDashboard() {
                     <div key={i} style={{ padding: 20, background: "#f8fafc", borderRadius: 16, marginBottom: 15, border: `1px solid ${COLORS.border}` }}>
                       <p style={{ margin: 0, fontWeight: 700, fontSize: 18, color: COLORS.primary }}>Dr. {a.doctorName}</p>
                       <p style={{ margin: "4px 0 12px", fontSize: 14, color: COLORS.textMuted }}>Assigned: {a.date} at {a.time}</p>
+
+                      {a.prescriptionImage && (
+                        <div style={{ marginBottom: 15 }}>
+                          <p style={{ fontSize: 14, fontWeight: 600, color: COLORS.textMuted, margin: '0 0 8px' }}>Original Handwritten Prescription:</p>
+                          <a href={a.prescriptionImage} target="_blank" rel="noreferrer">
+                            <img src={a.prescriptionImage} alt="prescription" style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 8, border: `1px solid ${COLORS.border}` }} />
+                          </a>
+                        </div>
+                      )}
+
                       <div style={{ background: "#fff", padding: 15, borderRadius: 12, fontSize: 16, border: `1px solid ${COLORS.border}` }}>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: COLORS.textMuted, margin: '0 0 8px' }}>Digitized Version:</p>
                         {renderPrescriptionTable(a.prescription)}
                       </div>
                     </div>
@@ -458,17 +627,139 @@ export default function PatientDashboard() {
 
           {tab === "doctors" && (
             <div>
-              <h2 style={{ color: COLORS.text, marginBottom: 30, fontSize: 32 }}>Consult a Specialist</h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
+                <h2 style={{ color: COLORS.text, margin: 0, fontSize: 32 }}>Consult a Specialist</h2>
+                <input
+                  type="text"
+                  placeholder="🔍 Search doctors or specialities..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  style={{
+                    padding: "12px 20px",
+                    borderRadius: 30,
+                    border: `1px solid ${COLORS.border}`,
+                    width: 350,
+                    fontSize: 16,
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
+                  }}
+                />
+              </div>
+
+              {!selectedSpecialization && !searchQuery && (
+                <>
+                  <div style={{ marginBottom: 40 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20 }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: 24, color: COLORS.text }}>25+ Specialities</h3>
+                        <p style={{ margin: "5px 0 0", color: COLORS.textMuted, fontSize: 16 }}>Consult with top doctors across specialities</p>
+                      </div>
+                      <Btn variant="outline" small style={{ borderRadius: 20 }}>See all Specialities</Btn>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 15, overflowX: "auto", paddingBottom: 10, scrollbarWidth: "none" }}>
+                      {SPECIALITIES.map((spec, i) => (
+                        <div
+                          key={i}
+                          onClick={() => setSelectedSpecialization(spec.name)}
+                          style={{
+                            minWidth: 160,
+                            background: "#fff",
+                            borderRadius: 16,
+                            padding: "20px 15px",
+                            textAlign: "center",
+                            cursor: "pointer",
+                            boxShadow: "0 4px 15px rgba(0,0,0,0.05)",
+                            border: `1px solid ${COLORS.border}`,
+                            transition: "transform 0.2s, box-shadow 0.2s"
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-5px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.1)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 15px rgba(0,0,0,0.05)"; }}
+                        >
+                          <div style={{ fontSize: 40, marginBottom: 15, background: COLORS.primaryLight, width: 80, height: 80, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>{spec.icon}</div>
+                          <p style={{ margin: 0, fontWeight: 700, color: COLORS.text, fontSize: 16 }}>{spec.name}</p>
+                          <p style={{ margin: "5px 0 12px", color: COLORS.textMuted, fontSize: 14 }}>₹{spec.fee}</p>
+                          <p style={{ margin: 0, color: COLORS.primary, fontWeight: 600, fontSize: 15 }}>Consult now &gt;</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 40 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20 }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: 24, color: COLORS.text }}>Common Health Concerns</h3>
+                        <p style={{ margin: "5px 0 0", color: COLORS.textMuted, fontSize: 16 }}>Consult a doctor online for any health issue</p>
+                      </div>
+                      <Btn variant="outline" small style={{ borderRadius: 20 }}>See All Symptoms</Btn>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 20, overflowX: "auto", paddingBottom: 10, scrollbarWidth: "none" }}>
+                      {SYMPTOMS.map((sym, i) => (
+                        <div
+                          key={i}
+                          onClick={() => setSelectedSpecialization(sym.spec)}
+                          style={{
+                            minWidth: 260,
+                            maxWidth: 260,
+                            background: "#fff",
+                            borderRadius: 16,
+                            overflow: "hidden",
+                            cursor: "pointer",
+                            boxShadow: "0 4px 15px rgba(0,0,0,0.05)",
+                            border: `1px solid ${COLORS.border}`,
+                            transition: "transform 0.2s"
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-5px)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "none"; }}
+                        >
+                          <img src={sym.image} alt={sym.name} style={{ width: "100%", height: 160, objectFit: "cover" }} />
+                          <div style={{ padding: 20 }}>
+                            <p style={{ margin: 0, fontWeight: 700, color: COLORS.text, fontSize: 18 }}>{sym.name}</p>
+                            <p style={{ margin: "5px 0 15px", color: COLORS.textMuted, fontSize: 15 }}>₹{sym.fee}</p>
+                            <p style={{ margin: 0, color: COLORS.primary, fontWeight: 600, fontSize: 15 }}>Consult Now &gt;</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Filtered Doctor List */}
+              {(selectedSpecialization || searchQuery) && (
+                <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h3 style={{ margin: 0, fontSize: 22, color: COLORS.text }}>
+                    {searchQuery ? `Search Results for "${searchQuery}"` : `Doctors specialized in ${selectedSpecialization}`}
+                  </h3>
+                  <Btn variant="ghost" small onClick={() => { setSelectedSpecialization(null); setSearchQuery(''); }} style={{ fontSize: 16, color: COLORS.danger }}>✕ Clear Filters</Btn>
+                </div>
+              )}
+
               {loadingDoctors ? (
                 <div style={{ textAlign: "center", padding: 50 }}>
                   <p style={{ fontSize: 24, color: COLORS.textMuted }}>Finding specialized doctors in your region...</p>
                 </div>
-              ) : doctors.length === 0 ? (
-                <Card style={{ padding: 40, textAlign: "center" }}>
-                  <p style={{ fontSize: 20, color: COLORS.textMuted }}>No doctors are currently registered in your village sector. Please try again later.</p>
-                </Card>
-              ) : (
-                doctors.map(doc => (
+              ) : (selectedSpecialization || searchQuery) ? (() => {
+                const filteredDoctors = doctors.filter(doc => {
+                  const matchesSearch = !searchQuery ||
+                    (doc.name && doc.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (doc.specialization && doc.specialization.toLowerCase().includes(searchQuery.toLowerCase()));
+
+                  const matchesSpec = !selectedSpecialization ||
+                    (doc.specialization && doc.specialization.toLowerCase().includes(selectedSpecialization.toLowerCase()));
+
+                  return matchesSearch && matchesSpec;
+                });
+
+                if (filteredDoctors.length === 0) {
+                  return (
+                    <Card style={{ padding: 40, textAlign: "center" }}>
+                      <p style={{ fontSize: 20, color: COLORS.textMuted }}>No doctors found matching your criteria. Please try another search or specialization.</p>
+                    </Card>
+                  );
+                }
+
+                return filteredDoctors.map(doc => (
                   <Card key={doc._id} style={{ marginBottom: 20, padding: 30 }}>
                     <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
                       <Avatar initials={doc.name[0]} size={70} color={COLORS.primary} />
@@ -476,10 +767,10 @@ export default function PatientDashboard() {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 15 }}>
                           <div>
                             <p style={{ margin: 0, fontWeight: 700, fontSize: 22, color: COLORS.text }}>Dr. {doc.name}</p>
-                            <p style={{ margin: "4px 0 8px", fontSize: 18, color: COLORS.textMuted }}>{doc.specialization} · {doc.experience || '5+'} yrs exp</p>
+                            <p style={{ margin: "4px 0 8px", fontSize: 18, color: COLORS.textMuted }}>{doc.specialization || 'General Physician'} · {doc.experience || '5+'} yrs exp</p>
                             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                               <Badge color="green" dot style={{ fontSize: 14 }}>Available</Badge>
-                              <span style={{ fontSize: 20, color: COLORS.primary, fontWeight: 800 }}>₹{doc.consultationFee}</span>
+                              <span style={{ fontSize: 20, color: COLORS.primary, fontWeight: 800 }}>₹{doc.consultationFee || 500}</span>
                             </div>
                           </div>
                           <Btn small onClick={() => setPayModal(doc)} style={{ fontSize: 18, padding: "12px 24px" }}>Schedule & Pay</Btn>
@@ -487,8 +778,8 @@ export default function PatientDashboard() {
                       </div>
                     </div>
                   </Card>
-                ))
-              )}
+                ));
+              })() : null}
             </div>
           )}
 
@@ -515,6 +806,15 @@ export default function PatientDashboard() {
                     {typeof a.prescription === 'string' && a.prescription && (
                       <div style={{ background: COLORS.primaryLight, padding: 15, borderRadius: 12, marginTop: 20, border: `1px solid ${COLORS.border}` }}>
                         <p style={{ margin: "0 0 8px", fontWeight: 700, color: COLORS.primaryDark }}>Doctor's Prescription:</p>
+
+                        {a.prescriptionImage && (
+                          <div style={{ marginBottom: 15 }}>
+                            <a href={a.prescriptionImage} target="_blank" rel="noreferrer">
+                              <img src={a.prescriptionImage} alt="prescription" style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 8, border: `1px solid ${COLORS.border}` }} />
+                            </a>
+                          </div>
+                        )}
+
                         {renderPrescriptionTable(a.prescription)}
                       </div>
                     )}
@@ -526,7 +826,14 @@ export default function PatientDashboard() {
 
           {tab === "medicines" && (
             <div>
-              <h2 style={{ color: COLORS.text, marginBottom: 12, fontSize: 32 }}>Medicine Inventory Check</h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h2 style={{ color: COLORS.text, margin: 0, fontSize: 32 }}>Medicine Inventory Check</h2>
+                {cart.length > 0 && (
+                  <Btn onClick={() => setShowCart(true)} style={{ background: "#f59e0b", fontSize: 18 }}>
+                    🛒 View Cart ({cart.length})
+                  </Btn>
+                )}
+              </div>
 
               {hasSearched && nearbyPharmacies.length === 0 && (
                 <Card style={{ padding: 40, textAlign: "center", marginBottom: 20 }}>
@@ -535,14 +842,12 @@ export default function PatientDashboard() {
               )}
 
               {(!hasSearched ? mockMedicines : nearbyPharmacies.flatMap(p => {
-                // Safety: Mongoose may return location as {} if schema was previously object type
                 const safeLocation = typeof p.location === 'string' && p.location ? p.location : null;
-                // const displayAddress = safeLocation || (typeof p.communityName === 'string' ? p.communityName : null) || 'Location not available';
                 return p.matchedMeds.map(m => ({
                   name: String(m.name || ''),
                   pharmacy: String(p.name || ''),
-                  // address: displayAddress,       // always a safe string
-                  location: safeLocation,        // null or a string
+                  pharmacyId: p._id,
+                  location: safeLocation,
                   qty: m.stock,
                   price: m.price
                 }));
@@ -552,18 +857,70 @@ export default function PatientDashboard() {
                     <div>
                       <p style={{ margin: 0, fontWeight: 700, fontSize: 22, color: COLORS.text }}>💊 {m.name}</p>
                       <p style={{ margin: "6px 0 0", fontSize: 18, color: COLORS.textMuted }}>Pharmacy: <strong style={{ color: COLORS.primaryDark }}>{m.pharmacy}</strong></p>
-                      {/* <p style={{ margin: "4px 0 0", fontSize: 16, color: COLORS.textMuted }}>📍 {m.address}</p> */}
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <p style={{ margin: 0, fontWeight: 900, fontSize: 32, color: COLORS.primary }}>{m.qty}</p>
                       <p style={{ margin: "4px 0 12px", fontSize: 16, color: COLORS.textMuted }}>units in stock {m.price ? `(₹${m.price}/unit)` : ''}</p>
-                      <Btn small style={{ fontSize: 18, padding: "12px 24px" }} onClick={() => setMapModal({ name: m.pharmacy, address: m.address, location: m.location })}>Get Directions 🗺️</Btn>
+                      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                        <Btn small variant="outline" style={{ fontSize: 16, padding: "10px 16px" }} onClick={() => setMapModal({ name: m.pharmacy, address: m.address, location: m.location })}>Directions 🗺️</Btn>
+                        {m.pharmacyId && (
+                          <Btn small style={{ fontSize: 16, padding: "10px 16px" }} onClick={() => {
+                            setCart([...cart, { ...m, requestedQty: 1 }]);
+                            alert("Added to cart!");
+                          }}>Add to Request ➕</Btn>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Card>
               ))}
 
               {hasSearched && <Btn variant="outline" onClick={() => { setHasSearched(false); setNearbyPharmacies([]); }} style={{ marginTop: 20 }}>Clear Search</Btn>}
+            </div>
+          )}
+
+          {tab === "orders" && (
+            <div>
+              <h2 style={{ color: COLORS.text, marginBottom: 24, fontSize: 32 }}>My Medicine Orders</h2>
+              {medicineOrders.length === 0 ? (
+                <Card style={{ padding: 40, textAlign: 'center' }}><p style={{ fontSize: 18, color: COLORS.textMuted }}>No medicine orders found.</p></Card>
+              ) : (
+                medicineOrders.map(order => (
+                  <Card key={order._id} style={{ padding: 24, marginBottom: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>Pharmacy: {order.pharmacyName}</p>
+                        <p style={{ margin: '4px 0 0', color: COLORS.textMuted, fontSize: 16 }}>Order total: ₹{order.totalAmount}</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <Badge color={
+                          order.status === 'requested' ? 'gray' :
+                            order.status === 'advance_pending' ? 'amber' :
+                              order.status === 'advance_paid' ? 'green' : 'blue'
+                        }>
+                          {order.status.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                        {order.advanceAmount > 0 && (
+                          <p style={{ margin: '8px 0 0', fontSize: 14, fontWeight: 700, color: COLORS.primaryDark }}>Advance Req: ₹{order.advanceAmount}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ background: '#f8fafc', padding: 15, borderRadius: 12, marginBottom: 20 }}>
+                      <p style={{ margin: '0 0 10px', fontWeight: 700 }}>Medicines:</p>
+                      {order.medicines.map((m, i) => (
+                        <p key={i} style={{ margin: '4px 0', fontSize: 15 }}>• {m.name} - Qty: {m.qty} (@ ₹{m.price}/unit)</p>
+                      ))}
+                    </div>
+
+                    {order.status === 'advance_pending' && (
+                      <Btn onClick={() => setPayAdvanceModal({ orderId: order._id, amount: order.advanceAmount, pharmacyName: order.pharmacyName })} style={{ width: '100%' }}>
+                        Pay Advance (₹{order.advanceAmount}) to Reserve
+                      </Btn>
+                    )}
+                  </Card>
+                ))
+              )}
             </div>
           )}
 
@@ -578,7 +935,7 @@ export default function PatientDashboard() {
                   {!sosActive ? (
                     <>
                       <div
-                       onClick={async () => {
+                        onClick={async () => {
                           setSosActive(true);
                           setSosSmsSent(false);
                           // Get patient location
@@ -591,7 +948,7 @@ export default function PatientDashboard() {
                                   () => resolve(), { timeout: 4000 }
                                 );
                               });
-                            } catch {}
+                            } catch { }
                           }
                           // Send SOS SMS alert
                           try {
@@ -659,22 +1016,22 @@ export default function PatientDashboard() {
                           100% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 149, 0, 0.6); }
                         }
                       `}</style>
-                       <div style={{ textAlign: "center" }}>
-                         <h3 style={{ fontSize: 24, color: COLORS.danger, margin: "0 0 8px" }}>Broadcasting Location...</h3>
-                         <p style={{ fontSize: 16, color: COLORS.textMuted, margin: 0 }}>Your coordinates and health profile are being transmitted in real-time.</p>
-                       </div>
-                       {sosSmsSent && (
-                         <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 14, padding: '14px 20px', width: '100%', textAlign: 'center' }}>
-                           <p style={{ margin: 0, fontWeight: 800, color: '#15803d', fontSize: 16 }}>📨 Emergency SMS sent</p>
-                           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#166534' }}>Help is on the way. Stay calm.</p>
-                         </div>
-                       )}
+                      <div style={{ textAlign: "center" }}>
+                        <h3 style={{ fontSize: 24, color: COLORS.danger, margin: "0 0 8px" }}>Broadcasting Location...</h3>
+                        <p style={{ fontSize: 16, color: COLORS.textMuted, margin: 0 }}>Your coordinates and health profile are being transmitted in real-time.</p>
+                      </div>
+                      {sosSmsSent && (
+                        <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 14, padding: '14px 20px', width: '100%', textAlign: 'center' }}>
+                          <p style={{ margin: 0, fontWeight: 800, color: '#15803d', fontSize: 16 }}>📨 Emergency SMS sent</p>
+                          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#166534' }}>Help is on the way. Stay calm.</p>
+                        </div>
+                      )}
                       <div style={{ background: COLORS.primaryLight, padding: 20, borderRadius: 16, width: "100%", textAlign: "left" }}>
                         <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 18, color: COLORS.primaryDark }}>🚨 Responding Rescue Unit:</p>
                         <p style={{ margin: "4px 0", fontSize: 16 }}>🏃 **Health Worker Rajesh Kumar** has acknowledged (ETA: 4 mins)</p>
                         <p style={{ margin: "4px 0", fontSize: 16 }}>🚑 **Ambulance Service** dispatched from Gram Sub-Center (ETA: 12 mins)</p>
                       </div>
-                       <Btn onClick={() => { setSosActive(false); setSosSmsSent(false); }} style={{ background: "#444", fontSize: 16, width: "100%" }}>Cancel Emergency Alert</Btn>
+                      <Btn onClick={() => { setSosActive(false); setSosSmsSent(false); }} style={{ background: "#444", fontSize: 16, width: "100%" }}>Cancel Emergency Alert</Btn>
                     </>
                   )}
                 </Card>

@@ -58,6 +58,26 @@ router.post('/verify', async (req, res) => {
   }
 });
 
+// @route   GET /api/appointments/doctor/:doctorId/slots
+// @desc    Get booked slots for a doctor on a specific date
+router.get('/doctor/:doctorId/slots', async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ message: "Date is required" });
+
+    const appointments = await Appointment.find({
+      doctorId: req.params.doctorId,
+      date,
+      status: { $in: ['confirmed', 'pending', 'active', 'calling'] }
+    });
+
+    const bookedSlots = appointments.map(a => a.time);
+    res.json(bookedSlots);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // @route   GET /api/appointments/user/:userId
 // @desc    Get all appointments for a specific user (patient or doctor)
 router.get('/user/:userId', async (req, res) => {
@@ -74,12 +94,13 @@ router.get('/user/:userId', async (req, res) => {
 // @route   PUT /api/appointments/:id/prescription
 // @desc    Update prescription for an appointment
 router.put('/:id/prescription', async (req, res) => {
-  const { prescription } = req.body;
+  const { prescription, prescriptionImage } = req.body;
   try {
-    const appointment = await Appointment.findByIdAndUpdate(req.params.id, {
-      prescription,
-      status: 'completed'
-    }, { new: true });
+    const updateData = { prescription, status: 'completed' };
+    if (prescriptionImage !== undefined) {
+      updateData.prescriptionImage = prescriptionImage;
+    }
+    const appointment = await Appointment.findByIdAndUpdate(req.params.id, updateData, { new: true });
     res.json(appointment);
   } catch (err) {
     res.status(500).json({ message: err.message });

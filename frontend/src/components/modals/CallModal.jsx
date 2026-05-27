@@ -39,6 +39,9 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
   const [videoOff, setVideoOff] = useState(type === 'voice');
   const [networkTier, setNetworkTier] = useState(() => detectNetworkTier());
   const [medicines, setMedicines] = useState([{ name: '', dosage: '', freq: '' }]);
+  const [prescriptionImage, setPrescriptionImage] = useState(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrConfidence, setOcrConfidence] = useState(null);
   const [saving, setSaving] = useState(false);
   const [partnerConnected, setPartnerConnected] = useState(user?.role === 'patient');
   const [showChat, setShowChat] = useState(false);
@@ -153,7 +156,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
         try {
           const localforage = (await import('localforage')).default;
           const offlinePrescriptions = await localforage.getItem(`offline_prescriptions_${user._id}`) || [];
-          offlinePrescriptions.push({ appointmentId, prescription: presStr, status: 'queued' });
+          offlinePrescriptions.push({ appointmentId, prescription: presStr, prescriptionImage, status: 'queued' });
           await localforage.setItem(`offline_prescriptions_${user._id}`, offlinePrescriptions);
           alert('Prescription saved offline! It will sync automatically when you reconnect.');
           onClose();
@@ -165,7 +168,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
         return;
       }
 
-      await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, { prescription: presStr });
+      await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, { prescription: presStr, prescriptionImage });
       alert('Prescription saved and sent to patient!');
       onClose();
     } catch { alert('Failed to save prescription'); }
@@ -199,6 +202,36 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
       streamRef.current?.getAudioTracks().forEach(t => { t.enabled = !newMuted; });
       return newMuted;
     });
+  };
+
+  const handleOCRUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setOcrLoading(true);
+    setOcrConfidence(null);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result;
+        try {
+          const res = await axios.post('http://localhost:5000/api/ocr/parse', { imageBase64: base64String });
+          if (res.data.success) {
+            setMedicines(res.data.medicines);
+            setPrescriptionImage(res.data.imageUrl);
+            setOcrConfidence(res.data.confidence);
+          }
+        } catch (err) {
+          alert('Failed to parse OCR.');
+        } finally {
+          setOcrLoading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setOcrLoading(false);
+      alert('Error reading file.');
+    }
   };
 
   // ── UI helpers ──────────────────────────────────────────────────────────────
@@ -346,9 +379,35 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
           <div style={{ flex: 0.32, background: '#fff', color: COLORS.text, padding: 28, display: !showChat ? 'flex' : 'none', flexDirection: 'column', borderLeft: '1px solid #e5e7eb', minWidth: 280 }}>
             <h3 style={{ fontSize: 20, marginBottom: 14, color: COLORS.primaryDark }}>📝 Live Prescription</h3>
             <p style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 12 }}>Patient: <strong>{partnerName}</strong></p>
+
+            <div style={{ marginBottom: 16, padding: 12, border: `2px dashed ${COLORS.primary}`, borderRadius: 12, textAlign: 'center' }}>
+              <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700 }}>Upload Handwritten Prescription</p>
+              {prescriptionImage ? (
+                <div>
+                   <img src={prescriptionImage} alt="prescription" style={{ width: '100%', maxHeight: 80, objectFit: 'contain', borderRadius: 8, marginBottom: 8 }} />
+                   <p style={{ fontSize: 12, color: COLORS.success, margin: 0 }}>✓ Image uploaded & parsed</p>
+                </div>
+              ) : (
+                <>
+                  <input type="file" accept="image/*" onChange={handleOCRUpload} style={{ display: 'none' }} id="ocr-upload" />
+                  <label htmlFor="ocr-upload">
+                    <div style={{ cursor: 'pointer', background: COLORS.primaryLight, padding: '8px 12px', borderRadius: 8, color: COLORS.primaryDark, fontSize: 14, fontWeight: 600 }}>
+                       {ocrLoading ? 'Extracting Text...' : 'Scan & Extract 📷'}
+                    </div>
+                  </label>
+                </>
+              )}
+            </div>
+
+            {ocrConfidence === 'Low' && (
+              <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: 8, padding: 10, marginBottom: 14 }}>
+                 <p style={{ margin: 0, fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>⚠️ Low OCR Confidence. Please verify and correct the extracted medicines manually below to avoid incorrect prescriptions.</p>
+              </div>
+            )}
+
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: 14 }}>
               {medicines.map((m, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10, background: '#f8fafc', padding: 12, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10, background: '#f8fafc', padding: 12, borderRadius: 12, border: `1px solid ${ocrConfidence === 'Low' ? '#fca5a5' : COLORS.border}` }}>
                   <input placeholder="Medicine Name" value={m.name} onChange={e => { const n = [...medicines]; n[i].name = e.target.value; setMedicines(n); }} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${COLORS.border}`, fontSize: 14 }} />
                   <div style={{ display: 'flex', gap: 6 }}>
                     <input placeholder="Dosage (500mg)" value={m.dosage} onChange={e => { const n = [...medicines]; n[i].dosage = e.target.value; setMedicines(n); }} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${COLORS.border}`, fontSize: 14 }} />
@@ -361,7 +420,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
                 + Add Medicine
               </Btn>
             </div>
-            <Btn onClick={handleSavePrescription} disabled={saving} style={{ width: '100%', padding: '15px 0', fontSize: 17 }}>
+            <Btn onClick={handleSavePrescription} disabled={saving || ocrLoading} style={{ width: '100%', padding: '15px 0', fontSize: 17 }}>
               {saving ? 'Saving...' : '💾 Save & Finish Call'}
             </Btn>
           </div>

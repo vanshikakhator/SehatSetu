@@ -16,6 +16,8 @@ export default function PharmacyDashboard() {
   const [newMed, setNewMed] = useState({ name: "", stock: "", price: "", threshold: 20 });
   const [locationStr, setLocationStr] = useState(user?.location || '');
   const [locationStatus, setLocationStatus] = useState('');
+  const [orders, setOrders] = useState([]);
+  const [advanceInput, setAdvanceInput] = useState({});
 
   // Auto-capture GPS every time pharmacy logs in — ensures map always shows current location
   useEffect(() => {
@@ -24,6 +26,11 @@ export default function PharmacyDashboard() {
     // Fetch inventory
     axios.get(`http://localhost:5000/api/auth/inventory/${user._id}`)
       .then(res => setInventory(res.data))
+      .catch(err => console.error(err));
+
+    // Fetch medicine orders
+    axios.get(`http://localhost:5000/api/medicine-orders/pharmacy/${user._id}`)
+      .then(res => setOrders(res.data))
       .catch(err => console.error(err));
 
     // Auto-save current GPS location silently
@@ -107,6 +114,26 @@ export default function PharmacyDashboard() {
       },
       () => setLocationStatus('❌ Permission denied. Please allow location access and retry.')
     );
+  };
+
+  const handleSetAdvance = async (orderId) => {
+    const amt = advanceInput[orderId];
+    if (!amt || isNaN(amt)) return alert("Please enter a valid amount");
+    try {
+      const res = await axios.put(`http://localhost:5000/api/medicine-orders/${orderId}/advance`, { advanceAmount: Number(amt) });
+      setOrders(orders.map(o => o._id === orderId ? res.data : o));
+    } catch (err) {
+      alert("Failed to set advance");
+    }
+  };
+
+  const handleUpdateStatus = async (orderId, newStatus) => {
+    try {
+      const res = await axios.put(`http://localhost:5000/api/medicine-orders/${orderId}/status`, { status: newStatus });
+      setOrders(orders.map(o => o._id === orderId ? res.data : o));
+    } catch (err) {
+      alert("Failed to update status");
+    }
   };
 
   const tabs = [{ id: "inventory", label: "Inventory", icon: "📦" }, { id: "requests", label: "Patient Requests", icon: "👥" }];
@@ -247,18 +274,60 @@ export default function PharmacyDashboard() {
 
           {tab === "requests" && (
             <div>
-              <h2 style={{ color: COLORS.text, marginBottom: 24, fontSize: 32 }}>Patient Requests</h2>
-              <Card style={{ padding: 30 }}>
-                <p style={{ color: COLORS.textMuted, fontSize: 18 }}>Recent requests for medicines from village health workers...</p>
-                <div style={{ marginTop: 20 }}>
-                  {[["Ramesh Das", "Paracetamol", "Pending"], ["Puja Ghosh", "Amoxicillin", "Fulfilled"]].map(([p, m, s]) => (
-                    <div key={p} style={{ display: "flex", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${COLORS.border}` }}>
-                      <span style={{ fontSize: 18 }}>{p} — {m}</span>
-                      <Badge color={s === "Pending" ? "amber" : "green"}>{s}</Badge>
+              <h2 style={{ color: COLORS.text, marginBottom: 24, fontSize: 32 }}>Patient Medicine Requests</h2>
+              {orders.length === 0 ? (
+                <Card style={{ padding: 30, textAlign: 'center' }}><p style={{ fontSize: 18, color: COLORS.textMuted }}>No requests yet.</p></Card>
+              ) : (
+                orders.map(order => (
+                  <Card key={order._id} style={{ padding: 24, marginBottom: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>Patient: {order.patientName}</p>
+                        <p style={{ margin: '4px 0 0', color: COLORS.textMuted, fontSize: 16 }}>Order total: ₹{order.totalAmount}</p>
+                      </div>
+                      <Badge color={
+                        order.status === 'requested' ? 'gray' : 
+                        order.status === 'advance_pending' ? 'amber' : 
+                        order.status === 'advance_paid' ? 'green' : 'blue'
+                      }>
+                        {order.status.replace('_', ' ').toUpperCase()}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              </Card>
+
+                    <div style={{ background: '#f8fafc', padding: 15, borderRadius: 12, marginBottom: 20 }}>
+                      <p style={{ margin: '0 0 10px', fontWeight: 700 }}>Requested Medicines:</p>
+                      {order.medicines.map((m, i) => (
+                        <p key={i} style={{ margin: '4px 0', fontSize: 15 }}>• {m.name} - Qty: {m.qty} (@ ₹{m.price}/unit)</p>
+                      ))}
+                    </div>
+
+                    {order.status === 'requested' && (
+                      <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+                        <input 
+                          type="number" 
+                          placeholder="Advance amount (₹)" 
+                          value={advanceInput[order._id] || ''}
+                          onChange={(e) => setAdvanceInput({...advanceInput, [order._id]: e.target.value})}
+                          style={{ padding: '10px 15px', borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+                        />
+                        <Btn onClick={() => handleSetAdvance(order._id)}>Request Advance</Btn>
+                      </div>
+                    )}
+
+                    {order.status === 'advance_paid' && (
+                      <div style={{ display: 'flex', gap: 15 }}>
+                        <Btn onClick={() => handleUpdateStatus(order._id, 'ready_for_pickup')} style={{ background: '#3b82f6' }}>Mark Ready for Pickup</Btn>
+                      </div>
+                    )}
+
+                    {order.status === 'ready_for_pickup' && (
+                      <div style={{ display: 'flex', gap: 15 }}>
+                        <Btn onClick={() => handleUpdateStatus(order._id, 'completed')} style={{ background: '#10b981' }}>Mark Completed</Btn>
+                      </div>
+                    )}
+                  </Card>
+                ))
+              )}
             </div>
           )}
         </main>

@@ -8,8 +8,10 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
   const [step, setStep] = useState(1); // 1: Info, 2: UPI, 3: Success
   const [disease, setDisease] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState("10:00 AM");
+  const [time, setTime] = useState("");
   const [upiId, setUpiId] = useState("");
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Load Razorpay script only when this modal opens (lazy load)
   useEffect(() => {
@@ -21,7 +23,32 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
     document.body.appendChild(script);
   }, []);
 
-  const timeSlots = ["09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"];
+  useEffect(() => {
+    // Fetch booked slots whenever doctor or date changes
+    const fetchSlots = async () => {
+      setLoadingSlots(true);
+      try {
+        const res = await axios.get(`http://localhost:5000/api/appointments/doctor/${doctor._id}/slots?date=${date}`);
+        setBookedSlots(res.data);
+      } catch (err) {
+        console.error("Failed to fetch slots", err);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    fetchSlots();
+  }, [doctor._id, date]);
+
+  const allTimeSlots = ["09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"];
+  const availableSlots = allTimeSlots.filter(t => !bookedSlots.includes(t));
+
+  useEffect(() => {
+    if (availableSlots.length > 0 && !availableSlots.includes(time)) {
+      setTime(availableSlots[0]);
+    } else if (availableSlots.length === 0) {
+      setTime("");
+    }
+  }, [availableSlots, time]);
 
 
   const handleSimulatedPayment = async () => {
@@ -125,15 +152,27 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
               </div>
               <div>
                 <p style={{ fontSize: 18, fontWeight: 700, marginBottom: 10, color: COLORS.text }}>Time</p>
-                <select value={time} onChange={(e) => setTime(e.target.value)} style={{ width: "100%", padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, color: COLORS.text, background: "#fcfcfc" }}>
-                  {timeSlots.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                {loadingSlots ? (
+                  <div style={{ padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, background: "#fcfcfc", color: COLORS.textMuted }}>Loading slots...</div>
+                ) : availableSlots.length === 0 ? (
+                  <div style={{ padding: "16px", borderRadius: 16, border: `2px solid #ef4444`, fontSize: 16, background: "#fef2f2", color: "#ef4444", fontWeight: 600 }}>All slots booked for this date</div>
+                ) : (
+                  <select value={time} onChange={(e) => setTime(e.target.value)} style={{ width: "100%", padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, color: COLORS.text, background: "#fcfcfc" }}>
+                    {availableSlots.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                )}
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 16 }}>
               <Btn variant="ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</Btn>
-              <Btn style={{ flex: 2, padding: "20px 0", fontSize: 22 }} onClick={() => setStep(2)}>Next: Payment →</Btn>
+              <Btn 
+                style={{ flex: 2, padding: "20px 0", fontSize: 22, opacity: availableSlots.length === 0 ? 0.5 : 1 }} 
+                onClick={() => setStep(2)}
+                disabled={availableSlots.length === 0}
+              >
+                Next: Payment →
+              </Btn>
             </div>
           </div>
         )}
