@@ -43,6 +43,14 @@ router.post('/send-otp', otpLimiter, async (req, res) => {
       if (!user || !user.otpVerified) {
         return res.status(404).json({ message: 'User not found or not verified' });
       }
+
+      if (role === 'doctor' && user.medicalLicenseExpiry) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (new Date(user.medicalLicenseExpiry) < today) {
+          return res.status(403).json({ message: 'Your Medical License has expired!' });
+        }
+      }
     } else if (mode === 'signup') {
       let existingUser = await User.findOne({ phone });
       
@@ -285,6 +293,70 @@ router.get('/pharmacies/search', async (req, res) => {
     res.json(results);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+// @route   POST /api/auth/health-record/request-otp
+// @desc    Request OTP to view patient's health record
+router.post('/health-record/request-otp', async (req, res) => {
+  const { patientId, doctorId } = req.body;
+  
+  try {
+    // Basic check: verify patient exists
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    // In a production app, verify if the doctor has an active appointment with this patient
+    
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    patient.otp = otp;
+    patient.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    await patient.save();
+    
+    console.log(`\n\n=== MOCK SMS (Health Record Access) ===\nTo: ${patient.phone}\nOTP: ${otp}\nDoctor ID: ${doctorId} is requesting access.\n================\n\n`);
+    
+    res.status(200).json({ message: 'OTP sent to patient successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   POST /api/auth/health-record/verify-otp
+// @desc    Verify OTP and grant access to patient's health record
+router.post('/health-record/verify-otp', async (req, res) => {
+  const { patientId, otp, doctorId } = req.body;
+  
+  try {
+    const patient = await User.findById(patientId).select('+otp +otpExpires');
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    if (!patient.otp || patient.otp !== otp || patient.otpExpires < new Date()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    // Clear OTP after successful verification
+    patient.otp = undefined;
+    patient.otpExpires = undefined;
+    await patient.save();
+    
+    // Log the access if needed
+    console.log(`[Audit Log] Doctor ${doctorId} accessed health record of Patient ${patientId} at ${new Date().toISOString()}`);
+
+    // Return the complete health record along with an access token or just data
+    res.json({
+      message: 'Access granted',
+      healthRecord: patient.healthRecord,
+      name: patient.name,
+      phone: patient.phone,
+      communityName: patient.communityName,
+      // Pass a timestamp for frontend timer verification
+      accessGrantedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

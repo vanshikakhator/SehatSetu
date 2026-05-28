@@ -32,6 +32,7 @@ app.use('/api/appointments', require('./routes/appointmentRoutes'));
 app.use('/api/sos', require('./routes/sosRoutes'));
 app.use('/api/ocr', require('./routes/ocrRoutes'));
 app.use('/api/medicine-orders', require('./routes/medicineOrderRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {

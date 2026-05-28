@@ -19,7 +19,19 @@ export default function DoctorDashboard() {
   const [callModal, setCallModal] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [viewingRecord, setViewingRecord] = useState(null);
+  const [otpModal, setOtpModal] = useState(null);
+  const [otpInput, setOtpInput] = useState("");
   const [sosAlert, setSosAlert] = useState(true);
+
+  useEffect(() => {
+    if (viewingRecord) {
+      const timer = setTimeout(() => {
+        alert("Session expired. Patient health record access revoked.");
+        setViewingRecord(null);
+      }, 15 * 60 * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [viewingRecord]);
   
   useEffect(() => {
     fetchAppointments();
@@ -95,12 +107,27 @@ export default function DoctorDashboard() {
     navigate('/');
   };
 
-  const fetchPatientRecord = async (patientId) => {
+  const requestPatientRecordAccess = async (patientId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/auth/profile/${patientId}`);
+      await axios.post(`http://localhost:5000/api/auth/health-record/request-otp`, { patientId, doctorId: user._id });
+      setOtpModal({ patientId });
+    } catch (err) {
+      alert("Could not request access. Ensure patient is verified.");
+    }
+  };
+
+  const verifyRecordOtp = async () => {
+    try {
+      const res = await axios.post(`http://localhost:5000/api/auth/health-record/verify-otp`, { 
+        patientId: otpModal.patientId, 
+        otp: otpInput, 
+        doctorId: user._id 
+      });
+      setOtpModal(null);
+      setOtpInput("");
       setViewingRecord(res.data);
     } catch (err) {
-      alert("Could not fetch patient record");
+      alert("Invalid or expired OTP");
     }
   };
 
@@ -154,9 +181,38 @@ export default function DoctorDashboard() {
       {consultModal && <ConsultationModal appointment={consultModal} onClose={() => setConsultModal(null)} />}
       {callModal && <CallModal user={user} partnerName={callModal.patientName} appointmentId={callModal._id} type={callModal.type} onClose={() => { setCallModal(null); fetchAppointments(); }} />}
       
-      {viewingRecord && (
+      {otpModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fff", borderRadius: 24, padding: 40, width: 600, maxWidth: "90%" }}>
+          <div style={{ background: "#fff", borderRadius: 24, padding: 40, width: 400, textAlign: "center" }}>
+            <h3 style={{ margin: "0 0 20px", fontSize: 24 }}>Patient Consent Required</h3>
+            <p style={{ color: COLORS.textMuted, marginBottom: 20 }}>An OTP has been sent to the patient's mobile number. Please ask them for the OTP to gain temporary access to their health records.</p>
+            <input 
+              placeholder="Enter 6-digit OTP" 
+              value={otpInput} 
+              onChange={e => setOtpInput(e.target.value)} 
+              maxLength={6}
+              style={{ width: "100%", padding: 15, borderRadius: 12, border: `2px solid ${COLORS.primary}`, fontSize: 24, textAlign: "center", tracking: "2px", marginBottom: 20, boxSizing: "border-box" }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <Btn variant="outline" onClick={() => { setOtpModal(null); setOtpInput(""); }} style={{ flex: 1 }}>Cancel</Btn>
+              <Btn onClick={verifyRecordOtp} style={{ flex: 1 }}>Verify</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingRecord && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div 
+            style={{ background: "#fff", borderRadius: 24, padding: 40, width: 700, maxWidth: "95%", position: "relative", userSelect: "none", maxHeight: "90vh", overflowY: "auto" }}
+            onContextMenu={e => e.preventDefault()}
+          >
+            {/* Security Watermark */}
+            <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.05, pointerEvents: "none", zIndex: 9999, overflow: "hidden" }}>
+              <p style={{ transform: "rotate(-45deg)", fontSize: 54, fontWeight: 900, whiteSpace: "nowrap", textAlign: "center", color: "#000" }}>
+                VIEWED BY DR. {user.name.toUpperCase()} <br/> {new Date().toLocaleString()}
+              </p>
+            </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <h3 style={{ margin: 0, fontSize: 24 }}>Digital Health Record — {viewingRecord.name}</h3>
               <button onClick={() => setViewingRecord(null)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer" }}>✕</button>
@@ -179,7 +235,32 @@ export default function DoctorDashboard() {
               <p style={{ margin: 0, fontSize: 14, color: COLORS.textMuted }}>Current Medications</p>
               <p style={{ margin: 0, fontSize: 16 }}>{viewingRecord.healthRecord?.medications || 'None'}</p>
             </div>
-            <Btn style={{ width: "100%" }} onClick={() => setViewingRecord(null)}>Close Record</Btn>
+            
+            {viewingRecord.healthRecord?.labReports?.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ margin: "0 0 8px", fontSize: 14, color: COLORS.textMuted }}>Lab Reports</p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {viewingRecord.healthRecord.labReports.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" style={{ padding: "8px 12px", background: COLORS.primaryLight, borderRadius: 8, fontSize: 14, textDecoration: "none", color: COLORS.primaryDark }}>📄 View Report {i + 1}</a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {viewingRecord.healthRecord?.previousPrescriptions?.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ margin: "0 0 8px", fontSize: 14, color: COLORS.textMuted }}>Previous Prescriptions</p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {viewingRecord.healthRecord.previousPrescriptions.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+                      <img src={url} alt="prescription" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.border}`, cursor: "pointer" }} />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Btn style={{ width: "100%", marginTop: 10 }} onClick={() => setViewingRecord(null)}>Close Secure Record</Btn>
           </div>
         </div>
       )}
@@ -232,7 +313,7 @@ export default function DoctorDashboard() {
                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${a.patientId}`} alt="Health QR" style={{ width: 40, height: 40, marginBottom: 8 }} />
                         <p style={{ margin: 0, fontSize: 12, fontWeight: 700 }}>HEALTH QR</p>
                       </div>
-                      <Btn small variant="ghost" onClick={() => fetchPatientRecord(a.patientId)} style={{ fontSize: 12, padding: "6px 12px" }}>View Record</Btn>
+                      <Btn small variant="ghost" onClick={() => requestPatientRecordAccess(a.patientId)} style={{ fontSize: 12, padding: "6px 12px" }}>Request Record</Btn>
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

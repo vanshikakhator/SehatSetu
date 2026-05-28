@@ -57,11 +57,14 @@ const UserSchema = new mongoose.Schema({
     conditions: String,
     allergies: String,
     pastSurgeries: String,
-    medications: String
+    medications: String,
+    labReports: [{ type: String }],
+    previousPrescriptions: [{ type: String }]
   },
   isVerified: { type: Boolean, default: false },
   hospitalName: String,
   medicalRegistrationNumber: String,
+  medicalLicenseExpiry: Date,
   degree: String,
   ownerName: String,
   drugLicenseNumber: String,

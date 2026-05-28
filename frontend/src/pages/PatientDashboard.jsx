@@ -20,27 +20,27 @@ import coughColdImg from '../assets/cough_cold.jpg';
 import skinIssuesImg from '../assets/skin-problems-v1.jpg';
 
 const SPECIALITIES = [
-  { name: 'General Physician', icon: '🩺', fee: 499 },
-  { name: 'Dermatologist', icon: '💆‍♀️', fee: 599 },
-  { name: 'Pediatrician', icon: '👶', fee: 699 },
-  { name: 'Cardiologist', icon: '❤️', fee: 899 },
-  { name: 'Gynecologist', icon: '🚺', fee: 799 },
-  { name: 'Psychiatrist', icon: '🧠', fee: 699 },
-  { name: 'Orthopedic', icon: '🦴', fee: 799 },
-  { name: 'Neurologist', icon: '⚕️', fee: 999 },
-  { name: 'ENT Specialist', icon: '👂', fee: 599 },
-  { name: 'Gastroenterologist', icon: '🏥', fee: 699 },
-  { name: 'Urologist', icon: '💧', fee: 899 }
+  { name: 'General Physician', icon: '🩺' },
+  { name: 'Dermatologist', icon: '💆‍♀️' },
+  { name: 'Pediatrician', icon: '👶' },
+  { name: 'Cardiologist', icon: '❤️' },
+  { name: 'Gynecologist', icon: '🚺' },
+  { name: 'Psychiatrist', icon: '🧠' },
+  { name: 'Orthopedic', icon: '🦴' },
+  { name: 'Neurologist', icon: '⚕️' },
+  { name: 'ENT Specialist', icon: '👂' },
+  { name: 'Gastroenterologist', icon: '🏥' },
+  { name: 'Urologist', icon: '💧' }
 ];
 
 const SYMPTOMS = [
-  { name: 'Want to lose weight?', spec: 'Dietitian', image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=400&q=80', fee: 600 },
-  { name: 'Stomach & Digestion?', spec: 'Gastroenterologist', image: stomachIssuesImg, fee: 699 },
-  { name: 'Vaginal infections?', spec: 'Gynecologist', image: vaginaImg, fee: 749 },
-  { name: 'Urinary or Kidney issues?', spec: 'Urologist', image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&w=400&q=80', fee: 899 },
-  { name: 'Sick kid?', spec: 'Pediatrician', image: sickKidImg, fee: 799 },
-  { name: 'Fever or cold?', spec: 'General Physician', image: coughColdImg, fee: 499 },
-  { name: 'Skin issues?', spec: 'Dermatologist', image: skinIssuesImg, fee: 599 },
+  { name: 'Want to lose weight?', spec: 'Dietitian', image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Stomach & Digestion?', spec: 'Gastroenterologist', image: stomachIssuesImg },
+  { name: 'Vaginal infections?', spec: 'Gynecologist', image: vaginaImg },
+  { name: 'Urinary or Kidney issues?', spec: 'Urologist', image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&w=400&q=80' },
+  { name: 'Sick kid?', spec: 'Pediatrician', image: sickKidImg },
+  { name: 'Fever or cold?', spec: 'General Physician', image: coughColdImg },
+  { name: 'Skin issues?', spec: 'Dermatologist', image: skinIssuesImg },
 ]
 
 export default function PatientDashboard() {
@@ -701,7 +701,6 @@ export default function PatientDashboard() {
                         >
                           <div style={{ fontSize: 40, marginBottom: 15, background: COLORS.primaryLight, width: 80, height: 80, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>{spec.icon}</div>
                           <p style={{ margin: 0, fontWeight: 700, color: COLORS.text, fontSize: 16 }}>{spec.name}</p>
-                          <p style={{ margin: "5px 0 12px", color: COLORS.textMuted, fontSize: 14 }}>₹{spec.fee}</p>
                           <p style={{ margin: 0, color: COLORS.primary, fontWeight: 600, fontSize: 15 }}>Consult now &gt;</p>
                         </div>
                       ))}
@@ -739,7 +738,7 @@ export default function PatientDashboard() {
                           <img src={sym.image} alt={sym.name} style={{ width: "100%", height: 160, objectFit: "cover" }} />
                           <div style={{ padding: 20 }}>
                             <p style={{ margin: 0, fontWeight: 700, color: COLORS.text, fontSize: 18 }}>{sym.name}</p>
-                            <p style={{ margin: "5px 0 15px", color: COLORS.textMuted, fontSize: 15 }}>₹{sym.fee}</p>
+
                             <p style={{ margin: 0, color: COLORS.primary, fontWeight: 600, fontSize: 15 }}>Consult Now &gt;</p>
                           </div>
                         </div>

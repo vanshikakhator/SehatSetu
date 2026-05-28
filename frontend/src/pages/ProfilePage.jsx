@@ -24,7 +24,9 @@ export default function ProfilePage() {
       conditions: '',
       allergies: '',
       pastSurgeries: '',
-      medications: ''
+      medications: '',
+      labReports: user?.healthRecord?.labReports || [],
+      previousPrescriptions: user?.healthRecord?.previousPrescriptions || []
     }
   });
   const [loading, setLoading] = useState(false);
@@ -40,6 +42,36 @@ export default function ProfilePage() {
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleFileUpload = async (e, field) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const uploadData = new FormData();
+    uploadData.append('file', file);
+    
+    setLoading(true);
+    try {
+      const res = await axios.post('http://localhost:5000/api/upload', uploadData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const filePath = res.data.filePath;
+      
+      setFormData(prev => ({
+        ...prev,
+        healthRecord: {
+          ...prev.healthRecord,
+          [field]: [...(prev.healthRecord[field] || []), filePath]
+        }
+      }));
+      setMessage('File uploaded successfully! ✅');
+    } catch (err) {
+      setMessage('Failed to upload file.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
@@ -174,6 +206,30 @@ export default function ProfilePage() {
                   <div>
                     <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Current Medications</p>
                     <textarea name="healthRecord.medications" value={formData.healthRecord.medications} onChange={handleChange} style={{ width: "100%", padding: 15, borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 18, minHeight: 80 }} />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: 20, marginBottom: 40 }}>
+                  <div style={{ background: "#fff", padding: 20, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
+                    <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Lab Test Reports (JPG, PNG, PDF)</p>
+                    <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => handleFileUpload(e, 'labReports')} style={{ marginBottom: 10 }} />
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {(formData.healthRecord.labReports || []).map((url, i) => (
+                        <div key={i} style={{ padding: "8px 12px", background: COLORS.primaryLight, borderRadius: 8, fontSize: 14 }}>
+                          <a href={url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: COLORS.primaryDark }}>📄 Report {i + 1}</a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ background: "#fff", padding: 20, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
+                    <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Previous Prescriptions (Images)</p>
+                    <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileUpload(e, 'previousPrescriptions')} style={{ marginBottom: 10 }} />
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {(formData.healthRecord.previousPrescriptions || []).map((url, i) => (
+                        <img key={i} src={url} alt={`Prescription ${i+1}`} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.border}` }} />
+                      ))}
+                    </div>
                   </div>
                 </div>
               </>

@@ -25,7 +25,8 @@ export default function AuthPage({ mode }) {
     organisationName: "",
     workerId: "",
     area: "",
-    roleType: ""
+    roleType: "",
+    medicalLicenseExpiry: ""
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,13 +63,25 @@ export default function AuthPage({ mode }) {
       setError("Please select a role");
       return;
     }
-    setError("");
-    setLoading(true);
     try {
       const data = { ...form, role, mode };
 
       if (mode === 'signup') {
         if (role === 'doctor') {
+          if (!form.medicalLicenseExpiry) {
+            setError("Please enter Medical License Expiry Date");
+            setLoading(false);
+            return;
+          }
+          const expiryDate = new Date(form.medicalLicenseExpiry);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          if (expiryDate < today) {
+            setError("Your Medical License has expired!");
+            setLoading(false);
+            return;
+          }
+
           const validIds = ['NMC10234', 'WBMC77881'];
           if (!validIds.includes(form.medicalRegistrationNumber)) {
             setError("Invalid Medical Registration Number");
@@ -225,6 +238,7 @@ export default function AuthPage({ mode }) {
                       <input placeholder="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                       <input placeholder="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                       <input placeholder="Medical Registration Number" value={form.medicalRegistrationNumber} onChange={e => setForm({ ...form, medicalRegistrationNumber: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input type="date" placeholder="License Expiry Date" value={form.medicalLicenseExpiry} onChange={e => setForm({ ...form, medicalLicenseExpiry: e.target.value })} title="Medical License Expiry Date" style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                       <input placeholder="Specialization (e.g. Cardiologist)" value={form.specialization} onChange={e => setForm({ ...form, specialization: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                       <input placeholder="Degree (e.g. MBBS, MD)" value={form.degree} onChange={e => setForm({ ...form, degree: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                       <input placeholder="Hospital/Clinic Name" value={form.hospitalName} onChange={e => setForm({ ...form, hospitalName: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
