@@ -17,17 +17,13 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (phone, password) => {
-    const res = await axios.post('http://localhost:5000/api/auth/login', { phone, password });
-    if (res.data) {
-      localStorage.setItem('user', JSON.stringify(res.data));
-      setUser(res.data);
-      return res.data;
-    }
+  const sendOtp = async (data) => {
+    const res = await axios.post('http://localhost:5000/api/auth/send-otp', data);
+    return res.data;
   };
 
-  const signup = async (userData) => {
-    const res = await axios.post('http://localhost:5000/api/auth/signup', userData);
+  const verifyOtp = async (data) => {
+    const res = await axios.post('http://localhost:5000/api/auth/verify-otp', data);
     if (res.data) {
       localStorage.setItem('user', JSON.stringify(res.data));
       setUser(res.data);
@@ -41,7 +37,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user, sendOtp, verifyOtp, logout, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

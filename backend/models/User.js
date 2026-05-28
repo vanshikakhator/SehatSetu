@@ -13,9 +13,19 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Please add a password'],
-    minlength: 6,
     select: false,
+  },
+  otp: {
+    type: String,
+    select: false
+  },
+  otpExpires: {
+    type: Date,
+    select: false
+  },
+  otpVerified: {
+    type: Boolean,
+    default: false
   },
   role: {
     type: String,
@@ -66,7 +76,7 @@ const UserSchema = new mongoose.Schema({
 });
 
 UserSchema.pre('save', async function () {
-  if (!this.isModified('password')) {
+  if (!this.isModified('password') || !this.password) {
     return;
   }
   const salt = await bcrypt.genSalt(10);

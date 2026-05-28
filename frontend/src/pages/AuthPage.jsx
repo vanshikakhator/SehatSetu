@@ -7,6 +7,8 @@ import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 export default function AuthPage({ mode }) {
   const [role, setRole] = useState(null);
+  const [step, setStep] = useState(1);
+  const [otp, setOtp] = useState("");
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -27,7 +29,7 @@ export default function AuthPage({ mode }) {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuth();
+  const { sendOtp, verifyOtp } = useAuth();
   const navigate = useNavigate();
 
   const roles = [
@@ -50,7 +52,7 @@ export default function AuthPage({ mode }) {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSendOtp = async () => {
     if (!navigator.onLine) {
       setError("You are currently offline. You need an internet connection to log in or sign up.");
       return;
@@ -63,9 +65,9 @@ export default function AuthPage({ mode }) {
     setError("");
     setLoading(true);
     try {
-      if (mode === 'signup') {
-        const signupData = { ...form, role };
+      const data = { ...form, role, mode };
 
+      if (mode === 'signup') {
         if (role === 'doctor') {
           const validIds = ['NMC10234', 'WBMC77881'];
           if (!validIds.includes(form.medicalRegistrationNumber)) {
@@ -73,7 +75,7 @@ export default function AuthPage({ mode }) {
             setLoading(false);
             return;
           }
-          signupData.isVerified = true;
+          data.isVerified = true;
         } else if (role === 'pharmacy') {
           const validIds = ['DL-WB-2025-12345'];
           if (!validIds.includes(form.drugLicenseNumber)) {
@@ -81,7 +83,7 @@ export default function AuthPage({ mode }) {
             setLoading(false);
             return;
           }
-          signupData.isVerified = true;
+          data.isVerified = true;
         } else if (role === 'worker') {
           const validIds = ['ASHA-WB-001', 'NGO-HELP-778'];
           if (!validIds.includes(form.workerId)) {
@@ -89,41 +91,32 @@ export default function AuthPage({ mode }) {
             setLoading(false);
             return;
           }
-          signupData.isVerified = true;
+          data.isVerified = true;
         }
-
-        // Clean up fields based on role
-        if (role !== 'doctor') {
-          delete signupData.specialization;
-          delete signupData.consultationFee;
-          delete signupData.hospitalName;
-          delete signupData.medicalRegistrationNumber;
-          delete signupData.degree;
-        }
-        if (role !== 'pharmacy') {
-          delete signupData.location;
-          delete signupData.ownerName;
-          delete signupData.drugLicenseNumber;
-        }
-        if (role !== 'worker') {
-          delete signupData.communityName;
-          delete signupData.organisationName;
-          delete signupData.workerId;
-          delete signupData.area;
-          delete signupData.roleType;
-        }
-        await signup(signupData);
-      } else {
-        await login(form.phone, form.password);
       }
+
+      await sendOtp(data);
+      setStep(2);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp) {
+      setError("Please enter the OTP");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      const data = { ...form, role, mode, otp };
+      await verifyOtp(data);
       navigate('/dashboard');
     } catch (err) {
-      let errMsg = err.response?.data?.message || "Authentication failed";
-      if (mode === 'signin' && errMsg === 'Invalid phone or password') {
-        if (role === 'doctor') errMsg = "Invalid Medical Registration Number or password";
-        if (role === 'worker') errMsg = "Invalid Worker ID or password";
-      }
-      setError(errMsg);
+      setError(err.response?.data?.message || "Invalid OTP");
     } finally {
       setLoading(false);
     }
@@ -157,7 +150,7 @@ export default function AuthPage({ mode }) {
           <p style={{ fontWeight: 700, fontSize: 16, color: COLORS.text, marginBottom: 12 }}>I am a...</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
             {roles.map(r => (
-              <button key={r.id} onClick={() => setRole(r.id)} style={{ padding: "16px 14px", borderRadius: 14, border: `2px solid ${role === r.id ? COLORS.primary : COLORS.border}`, background: role === r.id ? COLORS.primaryLight : "#fff", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
+              <button key={r.id} onClick={() => { if (step === 1) setRole(r.id); }} style={{ padding: "16px 14px", borderRadius: 14, border: `2px solid ${role === r.id ? COLORS.primary : COLORS.border}`, background: role === r.id ? COLORS.primaryLight : "#fff", cursor: step === 1 ? "pointer" : "not-allowed", opacity: (step === 2 && role !== r.id) ? 0.5 : 1, textAlign: "left", transition: "all 0.15s" }}>
                 <div style={{ fontSize: 26, marginBottom: 6 }}>{r.icon}</div>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: role === r.id ? COLORS.primary : COLORS.text }}>{r.label}</p>
                 <p style={{ margin: "2px 0 0", fontSize: 12, color: COLORS.textMuted }}>{r.desc}</p>
@@ -165,23 +158,57 @@ export default function AuthPage({ mode }) {
             ))}
           </div>
 
-          {role && (
+          {role && step === 1 && (
             <div style={{ display: "grid", gap: 12 }}>
               {mode === 'signin' && (
                 <>
-                  <input
-                    placeholder={role === "doctor" ? "Medical Registration Number" : (role === "worker" ? "Worker ID" : "Phone Number")}
-                    value={form.phone}
-                    onChange={e => setForm({ ...form, phone: e.target.value })}
-                    style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={form.password}
-                    onChange={e => setForm({ ...form, password: e.target.value })}
-                    style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-                  />
+                  {role === "doctor" && (
+                    <>
+                      <input
+                        placeholder="Medical Registration Number"
+                        value={form.medicalRegistrationNumber}
+                        onChange={e => setForm({ ...form, medicalRegistrationNumber: e.target.value })}
+                        style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
+                      />
+                      <input
+                        placeholder="Phone Number"
+                        value={form.phone}
+                        onChange={e => setForm({ ...form, phone: e.target.value })}
+                        style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
+                      />
+                      <input
+                        type="password"
+                        placeholder="Password (Optional)"
+                        value={form.password}
+                        onChange={e => setForm({ ...form, password: e.target.value })}
+                        style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
+                      />
+                    </>
+                  )}
+                  {role === "worker" && (
+                    <>
+                      <input
+                        placeholder="Worker ID"
+                        value={form.workerId}
+                        onChange={e => setForm({ ...form, workerId: e.target.value })}
+                        style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
+                      />
+                      <input
+                        placeholder="Phone Number"
+                        value={form.phone}
+                        onChange={e => setForm({ ...form, phone: e.target.value })}
+                        style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
+                      />
+                    </>
+                  )}
+                  {(role === "patient" || role === "pharmacy") && (
+                    <input
+                      placeholder="Phone Number"
+                      value={form.phone}
+                      onChange={e => setForm({ ...form, phone: e.target.value })}
+                      style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
+                    />
+                  )}
                 </>
               )}
               {mode === 'signup' && (
@@ -190,7 +217,6 @@ export default function AuthPage({ mode }) {
                     <>
                       <input placeholder="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                       <input placeholder="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
-                      <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                     </>
                   )}
 
@@ -203,7 +229,7 @@ export default function AuthPage({ mode }) {
                       <input placeholder="Degree (e.g. MBBS, MD)" value={form.degree} onChange={e => setForm({ ...form, degree: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                       <input placeholder="Hospital/Clinic Name" value={form.hospitalName} onChange={e => setForm({ ...form, hospitalName: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                       <input type="number" placeholder="Consultation Fee (₹)" value={form.consultationFee} onChange={e => setForm({ ...form, consultationFee: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
-                      <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input type="password" placeholder="Password (Optional)" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                     </>
                   )}
 
@@ -217,7 +243,6 @@ export default function AuthPage({ mode }) {
                         <button onClick={fetchLocation} style={{ background: COLORS.primaryLight, border: "none", borderRadius: 12, padding: "0 15px", color: COLORS.primary, cursor: "pointer", fontSize: 20 }}>📍</button>
                       </div>
                       <input placeholder="Drug License Number" value={form.drugLicenseNumber} onChange={e => setForm({ ...form, drugLicenseNumber: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
-                      <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                     </>
                   )}
 
@@ -235,20 +260,47 @@ export default function AuthPage({ mode }) {
                         <option value="Rural Health Worker">Rural Health Worker</option>
                         <option value="Emergency Responder">Emergency Responder</option>
                       </select>
-                      <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                     </>
                   )}
                 </>
               )}
 
               <Btn
-                onClick={handleSubmit}
+                onClick={handleSendOtp}
                 style={{ width: "100%", fontSize: 18, padding: "16px 0", marginTop: 12 }}
                 disabled={loading}
               >
-                {loading ? "Processing..." : (mode === "signup" ? "Create Account" : "Sign In")} →
+                {loading ? "Processing..." : "Get OTP"} →
               </Btn>
             </div>
+          )}
+
+          {role && step === 2 && (
+             <div style={{ display: "grid", gap: 12 }}>
+               <p style={{ textAlign: "center", margin: "0 0 10px 0", color: COLORS.textMuted }}>OTP sent successfully. Please enter it below.</p>
+               <input
+                 type="text"
+                 placeholder="Enter 6-digit OTP"
+                 value={otp}
+                 onChange={e => setOtp(e.target.value)}
+                 style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box", textAlign: "center", letterSpacing: 4 }}
+                 maxLength={6}
+               />
+               <Btn
+                 onClick={handleVerifyOtp}
+                 style={{ width: "100%", fontSize: 18, padding: "16px 0", marginTop: 12 }}
+                 disabled={loading}
+               >
+                 {loading ? "Verifying..." : (mode === "signup" ? "Verify & Create Account" : "Verify & Sign In")}
+               </Btn>
+               <button
+                 onClick={handleSendOtp}
+                 disabled={loading}
+                 style={{ background: "none", border: "none", color: COLORS.primary, fontWeight: 600, cursor: "pointer", fontSize: 14, marginTop: 10 }}
+               >
+                 Resend OTP
+               </button>
+             </div>
           )}
           <p style={{ textAlign: "center", fontSize: 15, color: COLORS.textMuted, marginTop: 24 }}>
             {mode === "signup" ? "Already have an account? " : "New to SehatSetu? "}
