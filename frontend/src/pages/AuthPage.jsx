@@ -14,7 +14,16 @@ export default function AuthPage({ mode }) {
     specialization: "",
     consultationFee: "",
     location: "",
-    communityName: ""
+    communityName: "",
+    hospitalName: "",
+    medicalRegistrationNumber: "",
+    degree: "",
+    ownerName: "",
+    drugLicenseNumber: "",
+    organisationName: "",
+    workerId: "",
+    area: "",
+    roleType: ""
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,7 +55,7 @@ export default function AuthPage({ mode }) {
       setError("You are currently offline. You need an internet connection to log in or sign up.");
       return;
     }
-    
+
     if (!role) {
       setError("Please select a role");
       return;
@@ -56,16 +65,52 @@ export default function AuthPage({ mode }) {
     try {
       if (mode === 'signup') {
         const signupData = { ...form, role };
+
+        if (role === 'doctor') {
+          const validIds = ['NMC10234', 'WBMC77881'];
+          if (!validIds.includes(form.medicalRegistrationNumber)) {
+            setError("Invalid Medical Registration Number");
+            setLoading(false);
+            return;
+          }
+          signupData.isVerified = true;
+        } else if (role === 'pharmacy') {
+          const validIds = ['DL-WB-2025-12345'];
+          if (!validIds.includes(form.drugLicenseNumber)) {
+            setError("Invalid Drug License Number");
+            setLoading(false);
+            return;
+          }
+          signupData.isVerified = true;
+        } else if (role === 'worker') {
+          const validIds = ['ASHA-WB-001', 'NGO-HELP-778'];
+          if (!validIds.includes(form.workerId)) {
+            setError("Invalid Worker ID");
+            setLoading(false);
+            return;
+          }
+          signupData.isVerified = true;
+        }
+
         // Clean up fields based on role
         if (role !== 'doctor') {
           delete signupData.specialization;
           delete signupData.consultationFee;
+          delete signupData.hospitalName;
+          delete signupData.medicalRegistrationNumber;
+          delete signupData.degree;
         }
         if (role !== 'pharmacy') {
           delete signupData.location;
+          delete signupData.ownerName;
+          delete signupData.drugLicenseNumber;
         }
         if (role !== 'worker') {
           delete signupData.communityName;
+          delete signupData.organisationName;
+          delete signupData.workerId;
+          delete signupData.area;
+          delete signupData.roleType;
         }
         await signup(signupData);
       } else {
@@ -73,7 +118,12 @@ export default function AuthPage({ mode }) {
       }
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || "Authentication failed");
+      let errMsg = err.response?.data?.message || "Authentication failed";
+      if (mode === 'signin' && errMsg === 'Invalid phone or password') {
+        if (role === 'doctor') errMsg = "Invalid Medical Registration Number or password";
+        if (role === 'worker') errMsg = "Invalid Worker ID or password";
+      }
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -117,67 +167,76 @@ export default function AuthPage({ mode }) {
 
           {role && (
             <div style={{ display: "grid", gap: 12 }}>
-              {(mode === "signup" || role === "worker") && (
-                <input
-                  placeholder={role === "worker" ? "Worker Name (e.g. Ramesh)" : "Full Name"}
-                  value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })}
-                  style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-                />
+              {mode === 'signin' && (
+                <>
+                  <input
+                    placeholder={role === "doctor" ? "Medical Registration Number" : (role === "worker" ? "Worker ID" : "Phone Number")}
+                    value={form.phone}
+                    onChange={e => setForm({ ...form, phone: e.target.value })}
+                    style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={form.password}
+                    onChange={e => setForm({ ...form, password: e.target.value })}
+                    style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
+                  />
+                </>
               )}
-              <input
-                placeholder="Phone / Email"
-                value={form.phone}
-                onChange={e => setForm({ ...form, phone: e.target.value })}
-                style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })}
-                style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-              />
-
               {mode === 'signup' && (
                 <>
+                  {role === 'patient' && (
+                    <>
+                      <input placeholder="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                    </>
+                  )}
+
                   {role === 'doctor' && (
                     <>
-                      <input
-                        placeholder="Specialization (e.g. Cardiologist)"
-                        value={form.specialization}
-                        onChange={e => setForm({ ...form, specialization: e.target.value })}
-                        style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-                      />
-                      <input
-                        type="number"
-                        placeholder="Consultation Fee (₹)"
-                        value={form.consultationFee}
-                        onChange={e => setForm({ ...form, consultationFee: e.target.value })}
-                        style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-                      />
+                      <input placeholder="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Medical Registration Number" value={form.medicalRegistrationNumber} onChange={e => setForm({ ...form, medicalRegistrationNumber: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Specialization (e.g. Cardiologist)" value={form.specialization} onChange={e => setForm({ ...form, specialization: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Degree (e.g. MBBS, MD)" value={form.degree} onChange={e => setForm({ ...form, degree: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Hospital/Clinic Name" value={form.hospitalName} onChange={e => setForm({ ...form, hospitalName: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input type="number" placeholder="Consultation Fee (₹)" value={form.consultationFee} onChange={e => setForm({ ...form, consultationFee: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
                     </>
                   )}
 
                   {role === 'pharmacy' && (
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <input
-                        placeholder="Pharmacy Location (Address or Coords)"
-                        value={form.location}
-                        onChange={e => setForm({ ...form, location: e.target.value })}
-                        style={{ flex: 1, padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-                      />
-                      <button onClick={fetchLocation} style={{ background: COLORS.primaryLight, border: "none", borderRadius: 12, padding: "0 15px", color: COLORS.primary, cursor: "pointer", fontSize: 20 }}>📍</button>
-                    </div>
+                    <>
+                      <input placeholder="Pharmacy Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Owner Name" value={form.ownerName} onChange={e => setForm({ ...form, ownerName: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <input placeholder="Pharmacy Location (Address or Coords)" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} style={{ flex: 1, padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                        <button onClick={fetchLocation} style={{ background: COLORS.primaryLight, border: "none", borderRadius: 12, padding: "0 15px", color: COLORS.primary, cursor: "pointer", fontSize: 20 }}>📍</button>
+                      </div>
+                      <input placeholder="Drug License Number" value={form.drugLicenseNumber} onChange={e => setForm({ ...form, drugLicenseNumber: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                    </>
                   )}
 
                   {role === 'worker' && (
-                    <input
-                      placeholder="Community Name (e.g. ASHA Workers)"
-                      value={form.communityName}
-                      onChange={e => setForm({ ...form, communityName: e.target.value })}
-                      style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }}
-                    />
+                    <>
+                      <input placeholder="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Organisation Name" value={form.organisationName} onChange={e => setForm({ ...form, organisationName: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Worker ID" value={form.workerId} onChange={e => setForm({ ...form, workerId: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Area" value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <input placeholder="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                      <select value={form.roleType} onChange={e => setForm({ ...form, roleType: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box", backgroundColor: "black", color: "white" }}>
+                        <option value="">Select Role Type</option>
+                        <option value="ASHA Worker">ASHA Worker</option>
+                        <option value="NGO Volunteer">NGO Volunteer</option>
+                        <option value="Rural Health Worker">Rural Health Worker</option>
+                        <option value="Emergency Responder">Emergency Responder</option>
+                      </select>
+                      <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 16, boxSizing: "border-box" }} />
+                    </>
                   )}
                 </>
               )}

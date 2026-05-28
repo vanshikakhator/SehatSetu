@@ -32,7 +32,10 @@ export default function HealthWorkerDashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
           <div style={{ fontSize: 32 }}>🏃</div>
           <div>
-            <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>{user?.name || "Health Worker"}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>{user?.name || "Health Worker"}</p>
+              {user?.isVerified && <Badge color="success">✓ Verified</Badge>}
+            </div>
             <p style={{ margin: 0, fontSize: 14, opacity: 0.8 }}>{user?.communityName || "Village Community Support"}</p>
           </div>
         </div>

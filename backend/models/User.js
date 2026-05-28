@@ -49,6 +49,16 @@ const UserSchema = new mongoose.Schema({
     pastSurgeries: String,
     medications: String
   },
+  isVerified: { type: Boolean, default: false },
+  hospitalName: String,
+  medicalRegistrationNumber: String,
+  degree: String,
+  ownerName: String,
+  drugLicenseNumber: String,
+  organisationName: String,
+  workerId: String,
+  area: String,
+  roleType: String,
   createdAt: {
     type: Date,
     default: Date.now,

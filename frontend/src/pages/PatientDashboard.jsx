@@ -209,12 +209,26 @@ export default function PatientDashboard() {
     setTimeout(() => setOcrResult(["Paracetamol", "Amoxicillin", "Omeprazole"]), 1500);
   };
 
+  const normalizeMed = (name) => {
+    return name.toLowerCase()
+      .replace(/\b(tab|tablet|cap|capsule|syr|syrup|inj|injection)\b\.?/g, '')
+      .replace(/[\.\,\-\+]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const findNearbyPharmacies = async (medNamesArray) => {
     try {
-      const medsString = medNamesArray.join(',');
+      // Clean extracted medicine names using robust normalization
+      const cleanedMedsArray = medNamesArray.map(m => normalizeMed(m));
+      const medsString = cleanedMedsArray.join(',');
 
       if (!navigator.onLine) {
-        const matched = mockMedicines.filter(m => medNamesArray.some(name => m.name.toLowerCase().includes(name.toLowerCase())));
+        const matched = mockMedicines.filter(m => {
+          const invNameNorm = normalizeMed(m.name);
+          return cleanedMedsArray.some(name => invNameNorm.includes(name));
+        });
+
         if (matched.length > 0) {
           setNearbyPharmacies([{
             name: "Sharma Medical Store",
@@ -236,7 +250,11 @@ export default function PatientDashboard() {
         setNearbyPharmacies(res.data); // DB pharmacies already have location field
       } else {
         // Fallback to mock data with real coordinates
-        const matched = mockMedicines.filter(m => medNamesArray.some(name => m.name.toLowerCase().includes(name.toLowerCase())));
+        const matched = mockMedicines.filter(m => {
+          const invNameNorm = normalizeMed(m.name);
+          return cleanedMedsArray.some(name => invNameNorm.includes(name));
+        });
+
         if (matched.length > 0) {
           setNearbyPharmacies([
             {
@@ -261,7 +279,13 @@ export default function PatientDashboard() {
       setTab("medicines");
     } catch (err) {
       console.error("Failed to search pharmacies", err);
-      const matched = mockMedicines.filter(m => medNamesArray.some(name => m.name.toLowerCase().includes(name.toLowerCase())));
+      // Clean again for fallback error case
+      const cleanedMedsArray = medNamesArray.map(m => normalizeMed(m));
+      const matched = mockMedicines.filter(m => {
+        const invNameNorm = normalizeMed(m.name);
+        return cleanedMedsArray.some(name => invNameNorm.includes(name));
+      });
+
       if (matched.length > 0) {
         setNearbyPharmacies([{
           name: "Sharma Medical",

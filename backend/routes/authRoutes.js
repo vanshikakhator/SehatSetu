@@ -14,7 +14,7 @@ const generateToken = (id) => {
 // @route   POST /api/auth/signup
 // @access  Public
 router.post('/signup', async (req, res) => {
-  const { name, phone, password, role, lang, specialization, consultationFee, location, communityName } = req.body;
+  const { name, phone, password, role, lang, specialization, consultationFee, location, communityName, isVerified, hospitalName, medicalRegistrationNumber, degree, ownerName, drugLicenseNumber, organisationName, workerId, area, roleType } = req.body;
 
   try {
     const userExists = await User.findOne({ phone });
@@ -32,7 +32,17 @@ router.post('/signup', async (req, res) => {
       specialization,
       consultationFee,
       location,
-      communityName
+      communityName,
+      isVerified,
+      hospitalName,
+      medicalRegistrationNumber,
+      degree,
+      ownerName,
+      drugLicenseNumber,
+      organisationName,
+      workerId,
+      area,
+      roleType
     });
 
     if (user) {
@@ -58,7 +68,13 @@ router.post('/login', async (req, res) => {
   const { phone, password } = req.body;
 
   try {
-    const user = await User.findOne({ phone }).select('+password');
+    const user = await User.findOne({
+      $or: [
+        { phone },
+        { medicalRegistrationNumber: phone },
+        { workerId: phone }
+      ]
+    }).select('+password');
 
     if (user && (await user.matchPassword(password))) {
       res.json({
@@ -177,7 +193,15 @@ router.get('/pharmacies/search', async (req, res) => {
     const medsQuery = req.query.meds;
     if (!medsQuery) return res.json([]);
     
-    const medNames = medsQuery.split(',').map(m => m.trim().toLowerCase());
+    const normalizeMed = (name) => {
+      return name.toLowerCase()
+        .replace(/\b(tab|tablet|cap|capsule|syr|syrup|inj|injection)\b\.?/g, '')
+        .replace(/[\.\,\-\+]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const medNames = medsQuery.split(',').map(m => normalizeMed(m)).filter(Boolean);
     
     // Find pharmacies that have AT LEAST one of these medicines
     const pharmacies = await User.find({ role: 'pharmacy' }).select('name location communityName inventory');
@@ -188,7 +212,9 @@ router.get('/pharmacies/search', async (req, res) => {
       if (!p.inventory || p.inventory.length === 0) continue;
       
       const matchedMeds = p.inventory.filter(inv => {
-        return inv.stock > 0 && medNames.some(med => inv.name.toLowerCase().includes(med));
+        if (!inv.name) return false;
+        const invNameNorm = normalizeMed(inv.name);
+        return inv.stock > 0 && medNames.some(med => invNameNorm.includes(med));
       });
       
       if (matchedMeds.length > 0) {

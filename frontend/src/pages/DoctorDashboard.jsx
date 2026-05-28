@@ -195,7 +195,10 @@ export default function DoctorDashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
           <Avatar initials={user?.name[0]} size={46} color="#fff" />
           <div>
-            <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>Dr. {user?.name}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>Dr. {user?.name}</p>
+              {user?.isVerified && <Badge color="success">✓ Verified</Badge>}
+            </div>
             <p style={{ margin: 0, fontSize: 14, opacity: 0.8 }}>{user?.specialization} · {user?.communityName || 'Sector'} Specialist</p>
           </div>
         </div>

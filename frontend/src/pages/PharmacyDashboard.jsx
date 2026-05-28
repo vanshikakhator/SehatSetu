@@ -144,7 +144,10 @@ export default function PharmacyDashboard() {
       <nav style={{ background: "#7c3aed", color: "#fff", padding: "0 5%", display: "flex", alignItems: "center", justifyContent: "space-between", height: 70, position: "relative", zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
           <div style={{ fontSize: 32 }}>💊</div>
-          <span style={{ fontWeight: 800, fontSize: 24 }}>{user?.name || "Sharma Medical"} — Pharmacy</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontWeight: 800, fontSize: 24 }}>{user?.name || "Sharma Medical"} — Pharmacy</span>
+            {user?.isVerified && <Badge color="success">✓ Verified</Badge>}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <LanguageSwitcher />

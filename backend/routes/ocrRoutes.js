@@ -3,7 +3,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI, Type } = require('@google/genai');
 
 // Initialize Gemini Client
 let genAI;
@@ -50,8 +50,7 @@ router.post('/parse', async (req, res) => {
         
         const prompt = `
           Extract the medicines, dosages, and frequencies from the following handwritten prescription image. 
-          Return ONLY a valid JSON array of objects, with no markdown formatting. 
-          Example format: [{"name": "Medicine A", "dosage": "500mg", "freq": "1-0-1"}]
+          Return an empty array if you cannot find any medicines.
         `;
         
         const response = await genAI.models.generateContent({
@@ -59,11 +58,25 @@ router.post('/parse', async (req, res) => {
           contents: [
             prompt,
             { inlineData: { data: base64Data, mimeType: mimeType } }
-          ]
+          ],
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  dosage: { type: Type.STRING },
+                  freq: { type: Type.STRING }
+                },
+                required: ["name", "dosage", "freq"]
+              }
+            }
+          }
         });
         
-        let jsonStr = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
-        structuredMedicines = JSON.parse(jsonStr);
+        structuredMedicines = JSON.parse(response.text);
         confidence = "High";
       } else {
         throw new Error("GenAI not initialized (missing GEMINI_API_KEY)");
