@@ -16,15 +16,19 @@ function detectNetworkTier() {
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   if (!conn) return 'video'; // unknown → assume fine
 
-  const { effectiveType, downlink } = conn;
+  const { effectiveType, downlink, rtt } = conn;
 
-  if (effectiveType === 'slow-2g' || effectiveType === '2g' || downlink < 0.3) {
-    return 'voice'; // too slow for video
+  // Weak connection -> Chat Mode
+  if (effectiveType === '3g' || effectiveType === 'slow-2g' || effectiveType === '2g' || downlink < 1.5 || rtt >= 300) {
+    return 'chat'; // 3G and below
   }
-  if (effectiveType === '3g' || (downlink >= 0.3 && downlink < 2)) {
-    return 'voice'; // borderline — voice only to be safe
+
+  // Medium connection -> Audio-Only
+  if (downlink >= 1.5 && downlink < 4.0) {
+    return 'voice'; // Slow 4G
   }
-  // 4g / wifi — good
+
+  // Strong connection -> Full Video
   return 'video';
 }
 
@@ -51,7 +55,10 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
     const update = () => {
       const tier = detectNetworkTier();
       setNetworkTier(tier);
-      if (tier !== 'video') {
+      if (tier === 'chat' || tier === 'offline') {
+        setShowChat(true);
+        setVideoOff(true);
+      } else if (tier === 'voice') {
         setVideoOff(true);
       } else if (type !== 'voice') {
         setVideoOff(false); // Turn video back on if network is good
@@ -79,8 +86,15 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
     let stream = null;
     // Voice type or poor network → audio only; good network + video type → video+audio
     const needVideo = type !== 'voice' && networkTier === 'video';
+    const needAudio = networkTier !== 'chat' && networkTier !== 'offline';
 
     async function startMedia() {
+      if (!needAudio && !needVideo) {
+        setVideoOff(true);
+        setCallStatus('chat_only');
+        return;
+      }
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: needVideo,
@@ -241,8 +255,12 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
   const networkBadge = {
     video:   { icon: '📶', label: 'Good Signal — Video Call', color: '#064e3b', bg: '#d1fae5' },
     voice:   { icon: '⚠️', label: 'Low Data — Voice Call Only', color: '#78350f', bg: '#fef3c7' },
+    chat:    { icon: '💬', label: 'Very Low Data — Chat Mode Only', color: '#1e3a8a', bg: '#dbeafe' },
     offline: { icon: '📴', label: 'OFFLINE — Use Chat Below', color: '#7f1d1d', bg: '#fee2e2' }
   }[networkTier];
+
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const debugInfo = conn ? ` (${conn.effectiveType}, ↓ ${conn.downlink}Mbps, ${conn.rtt}ms)` : '';
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
@@ -254,8 +272,8 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
           {/* Network Banner */}
           <div style={{ padding: '10px 20px', background: networkBadge.bg, display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 18 }}>{networkBadge.icon}</span>
-            <span style={{ color: networkBadge.color, fontWeight: 700, fontSize: 14 }}>{networkBadge.label}</span>
-            {isOffline && (
+            <span style={{ color: networkBadge.color, fontWeight: 700, fontSize: 14 }}>{networkBadge.label} {debugInfo}</span>
+            {(isOffline || networkTier === 'chat') && (
               <button
                 onClick={() => { setShowChat(true); }}
                 style={{ marginLeft: 'auto', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
@@ -268,11 +286,16 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
                 Video disabled to save bandwidth
               </span>
             )}
+            {networkTier === 'chat' && (
+              <span style={{ marginLeft: 'auto', color: '#1e3a8a', fontSize: 12 }}>
+                Audio/Video disabled to save bandwidth
+              </span>
+            )}
           </div>
 
           {/* Video / Avatar Area */}
           <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000d1a', overflow: 'hidden' }}>
-            {callStatus === 'active' ? (
+            {(callStatus === 'active' || callStatus === 'chat_only') ? (
               <>
                 {/* Remote video — always mounted, toggled via display to preserve stream */}
                 <video ref={remoteVideoRef} autoPlay playsInline style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', display: (isVideo && partnerConnected) ? 'block' : 'none' }} />
@@ -292,11 +315,13 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
                     <p style={{ margin: '12px 0 0', opacity: 0.8, fontSize: 16 }}>
                       {!partnerConnected && user?.role === 'doctor'
                         ? '⏳ Waiting for patient to join...'
-                        : networkTier === 'voice'
-                          ? '🎙️ Voice Call Active'
-                          : isOffline
-                            ? '📴 Offline — Use chat to communicate'
-                            : 'Connected'}
+                        : networkTier === 'chat'
+                          ? '💬 Lightweight Chat Mode Active'
+                          : networkTier === 'voice'
+                            ? '🎙️ Voice Call Active'
+                            : isOffline
+                              ? '📴 Offline — Use chat to communicate'
+                              : 'Connected'}
                     </p>
 
                     {/* Audio wave animation for voice mode */}
