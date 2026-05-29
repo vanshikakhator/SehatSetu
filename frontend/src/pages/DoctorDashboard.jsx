@@ -22,6 +22,7 @@ export default function DoctorDashboard() {
   const [otpModal, setOtpModal] = useState(null);
   const [otpInput, setOtpInput] = useState("");
   const [sosAlert, setSosAlert] = useState(true);
+  const [viewingMedia, setViewingMedia] = useState(null);
 
   useEffect(() => {
     if (viewingRecord) {
@@ -241,7 +242,7 @@ export default function DoctorDashboard() {
                 <p style={{ margin: "0 0 8px", fontSize: 14, color: COLORS.textMuted }}>Lab Reports</p>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {viewingRecord.healthRecord.labReports.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noreferrer" style={{ padding: "8px 12px", background: COLORS.primaryLight, borderRadius: 8, fontSize: 14, textDecoration: "none", color: COLORS.primaryDark }}>📄 View Report {i + 1}</a>
+                    <div key={i} onClick={() => setViewingMedia(url)} style={{ padding: "8px 12px", background: COLORS.primaryLight, borderRadius: 8, fontSize: 14, color: COLORS.primaryDark, cursor: "pointer", userSelect: "none" }}>📄 View Report {i + 1}</div>
                   ))}
                 </div>
               </div>
@@ -252,15 +253,29 @@ export default function DoctorDashboard() {
                 <p style={{ margin: "0 0 8px", fontSize: 14, color: COLORS.textMuted }}>Previous Prescriptions</p>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {viewingRecord.healthRecord.previousPrescriptions.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
-                      <img src={url} alt="prescription" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.border}`, cursor: "pointer" }} />
-                    </a>
+                    <div key={i} onClick={() => setViewingMedia(url)} style={{ cursor: "pointer", userSelect: "none" }}>
+                      <img src={url} alt="prescription" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.border}`, pointerEvents: "none" }} />
+                    </div>
                   ))}
                 </div>
               </div>
             )}
 
             <Btn style={{ width: "100%", marginTop: 10 }} onClick={() => setViewingRecord(null)}>Close Secure Record</Btn>
+          </div>
+        </div>
+      )}
+
+      {viewingMedia && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center" }} onContextMenu={e => e.preventDefault()}>
+          <div style={{ position: "relative", maxWidth: "90%", maxHeight: "90%" }}>
+            <button onClick={() => setViewingMedia(null)} style={{ position: "absolute", top: -40, right: -40, background: "none", border: "none", color: "#fff", fontSize: 30, cursor: "pointer" }}>✕</button>
+            <div style={{ position: "absolute", inset: 0, zIndex: 3001 }}></div>
+            {viewingMedia.toLowerCase().endsWith('.pdf') ? (
+              <iframe src={`${viewingMedia}#toolbar=0`} style={{ width: "80vw", height: "80vh", border: "none", pointerEvents: "none" }} title="Secure Media" />
+            ) : (
+              <img src={viewingMedia} alt="Secure Media" style={{ maxWidth: "100%", maxHeight: "80vh", objectFit: "contain", userSelect: "none", pointerEvents: "none" }} />
+            )}
           </div>
         </div>
       )}
