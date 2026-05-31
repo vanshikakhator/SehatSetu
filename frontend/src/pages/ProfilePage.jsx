@@ -119,7 +119,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0faf5", padding: "40px 5%" }}>
+    <div style={{ fontFamily: "var(--font-display)", minHeight: "100vh", background: COLORS.surfaceAlt || "#f8f9fa", padding: "40px 5%" }}>
       <div style={{ maxWidth: 800, margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
           <h1 style={{ fontSize: 36, color: COLORS.text }}>My Profile</h1>
@@ -210,7 +210,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div style={{ display: "grid", gap: 20, marginBottom: 40 }}>
-                  <div style={{ background: "#fff", padding: 20, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
+                  <div style={{ background: COLORS.surface, padding: 20, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
                     <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Lab Test Reports (JPG, PNG, PDF)</p>
                     <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => handleFileUpload(e, 'labReports')} style={{ marginBottom: 10 }} />
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -222,7 +222,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  <div style={{ background: "#fff", padding: 20, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
+                  <div style={{ background: COLORS.surface, padding: 20, borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
                     <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Previous Prescriptions (Images)</p>
                     <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileUpload(e, 'previousPrescriptions')} style={{ marginBottom: 10 }} />
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

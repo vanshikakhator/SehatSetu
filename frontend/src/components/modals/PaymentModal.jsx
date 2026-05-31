@@ -112,7 +112,7 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)" }}>
-      <div style={{ background: "#fff", borderRadius: 32, padding: 48, width: 550, maxWidth: "90%", boxShadow: "0 30px 60px rgba(0,0,0,0.3)", textAlign: "center" }}>
+      <div style={{ background: COLORS.surface, borderRadius: 32, padding: 48, width: 550, maxWidth: "90%", boxShadow: "0 30px 60px rgba(0,0,0,0.3)", textAlign: "center" }}>
 
         {step === 1 && (
           <div style={{ textAlign: "left" }}>
@@ -140,7 +140,7 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
                   boxSizing: "border-box",
                   outline: "none",
                   color: COLORS.text,
-                  backgroundColor: "#f0f8ff" // Change this color
+                  backgroundColor: "#42617cff" // Change this color
                 }}
               />
             </div>
@@ -148,16 +148,16 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 40 }}>
               <div>
                 <p style={{ fontSize: 18, fontWeight: 700, marginBottom: 10, color: COLORS.text }}>Date</p>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "100%", padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, color: COLORS.text, background: "#fcfcfc" }} />
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "100%", padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, color: COLORS.text, background: "#42617cff" }} />
               </div>
               <div>
                 <p style={{ fontSize: 18, fontWeight: 700, marginBottom: 10, color: COLORS.text }}>Time</p>
                 {loadingSlots ? (
-                  <div style={{ padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, background: "#fcfcfc", color: COLORS.textMuted }}>Loading slots...</div>
+                  <div style={{ padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, background: "#42617cff", color: COLORS.textMuted }}>Loading slots...</div>
                 ) : availableSlots.length === 0 ? (
-                  <div style={{ padding: "16px", borderRadius: 16, border: `2px solid #ef4444`, fontSize: 16, background: "#fef2f2", color: "#ef4444", fontWeight: 600 }}>All slots booked for this date</div>
+                  <div style={{ padding: "16px", borderRadius: 16, border: `2px solid #ef4444`, fontSize: 16, background: "#42617cff", color: "#ef4444", fontWeight: 600 }}>All slots booked for this date</div>
                 ) : (
-                  <select value={time} onChange={(e) => setTime(e.target.value)} style={{ width: "100%", padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, color: COLORS.text, background: "#fcfcfc" }}>
+                  <select value={time} onChange={(e) => setTime(e.target.value)} style={{ width: "100%", padding: "16px", borderRadius: 16, border: `2px solid ${COLORS.border}`, fontSize: 18, color: COLORS.text, background: "#42617cff" }}>
                     {availableSlots.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 )}
@@ -166,8 +166,8 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
 
             <div style={{ display: "flex", gap: 16 }}>
               <Btn variant="ghost" style={{ flex: 1 }} onClick={onClose}>Cancel</Btn>
-              <Btn 
-                style={{ flex: 2, padding: "20px 0", fontSize: 22, opacity: availableSlots.length === 0 ? 0.5 : 1 }} 
+              <Btn
+                style={{ flex: 2, padding: "20px 0", fontSize: 22, opacity: availableSlots.length === 0 ? 0.5 : 1 }}
                 onClick={() => setStep(2)}
                 disabled={availableSlots.length === 0}
               >
@@ -182,7 +182,7 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
             <h3 style={{ margin: "0 0 10px", fontSize: 32, fontWeight: 800, color: COLORS.primaryDark }}>Secure Payment</h3>
             <p style={{ color: COLORS.textMuted, fontSize: 18, marginBottom: 32 }}>Enter UPI ID to confirm your appointment</p>
 
-            <div style={{ background: "#f8fafc", padding: 32, borderRadius: 24, marginBottom: 40, border: `2px solid ${COLORS.primary}22` }}>
+            <div style={{ background: COLORS.surfaceAlt, padding: 32, borderRadius: 24, marginBottom: 40, border: `2px solid ${COLORS.primary}22` }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
                 <span style={{ fontSize: 20, color: COLORS.textMuted }}>Fee to Pay</span>
                 <span style={{ fontSize: 32, fontWeight: 900, color: COLORS.primary }}>₹{doctor.consultationFee}</span>
@@ -201,7 +201,7 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
                   boxSizing: "border-box",
                   outline: "none",
                   color: COLORS.text,
-                  backgroundColor: "#f0f8ff" // Change background color here
+                  backgroundColor: "#294359ff" // Change background color here
                 }}
               />
             </div>
@@ -220,9 +220,9 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
             <div style={{ width: 100, height: 100, background: "#22c55e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 60, color: "#fff", margin: "0 auto 32px", boxShadow: "0 10px 20px rgba(34, 197, 94, 0.3)" }}>
               ✓
             </div>
-            <h3 style={{ fontSize: 36, fontWeight: 900, color: "#1a202c", marginBottom: 16 }}>Payment Successful!</h3>
+            <h3 style={{ fontSize: 36, fontWeight: 900, color: "#a6b5d2ff", marginBottom: 16 }}>Payment Successful!</h3>
             <p style={{ fontSize: 20, color: COLORS.textMuted, lineHeight: 1.6, marginBottom: 40 }}>
-              Your appointment with <span style={{ fontWeight: 700, color: COLORS.primary }}>Dr. {doctor.name}</span> has been confirmed for <span style={{ fontWeight: 700, color: "#1a202c" }}>{date} at {time}</span>.
+              Your appointment with <span style={{ fontWeight: 700, color: COLORS.primary }}>Dr. {doctor.name}</span> has been confirmed for <span style={{ fontWeight: 700, color: "#8d9fc4ff" }}>{date} at {time}</span>.
             </p>
             <Btn style={{ width: "100%", padding: "20px 0", fontSize: 20 }} onClick={onSuccess}>Go to Dashboard</Btn>
           </div>

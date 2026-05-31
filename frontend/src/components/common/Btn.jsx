@@ -3,10 +3,10 @@ import { COLORS } from '../../constants';
 
 export default function Btn({ children, variant = "primary", onClick, style = {}, small = false }) {
   const variants = {
-    primary: { background: COLORS.primary, color: "#fff", border: "none" },
-    outline: { background: "transparent", color: COLORS.primary, border: `1.5px solid ${COLORS.primary}` },
+    primary: { background: COLORS.primary, color: "#000", border: "none" },
+    outline: { background: "transparent", color: COLORS.primary, border: `2px solid ${COLORS.primary}` },
     danger: { background: COLORS.danger, color: "#fff", border: "none" },
-    ghost: { background: COLORS.primaryLight, color: COLORS.primary, border: "none" },
+    ghost: { background: "transparent", color: COLORS.text, border: `1px solid ${COLORS.border}` },
     amber: { background: COLORS.accent, color: "#fff", border: "none" },
   };
   return (

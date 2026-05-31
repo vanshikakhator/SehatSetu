@@ -165,7 +165,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
     setSaving(true);
     try {
       const presStr = JSON.stringify(medicines.filter(m => m.name.trim() !== ''));
-      
+
       if (!navigator.onLine) {
         try {
           const localforage = (await import('localforage')).default;
@@ -194,7 +194,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
       try {
         const presStr = JSON.stringify(medicines.filter(m => m.name.trim() !== ''));
         const finalPres = presStr === '[]' ? 'Consultation completed.' : presStr;
-        
+
         if (!navigator.onLine) {
           const localforage = (await import('localforage')).default;
           const offlinePrescriptions = await localforage.getItem(`offline_prescriptions_${user._id}`) || [];
@@ -253,9 +253,9 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
   const isOffline = networkTier === 'offline';
 
   const networkBadge = {
-    video:   { icon: '📶', label: 'Good Signal — Video Call', color: '#064e3b', bg: '#d1fae5' },
-    voice:   { icon: '⚠️', label: 'Low Data — Voice Call Only', color: '#78350f', bg: '#fef3c7' },
-    chat:    { icon: '💬', label: 'Very Low Data — Chat Mode Only', color: '#1e3a8a', bg: '#dbeafe' },
+    video: { icon: '📶', label: 'Good Signal — Video Call', color: '#064e3b', bg: '#d1fae5' },
+    voice: { icon: '⚠️', label: 'Low Data — Voice Call Only', color: '#78350f', bg: '#fef3c7' },
+    chat: { icon: '💬', label: 'Very Low Data — Chat Mode Only', color: '#1e3a8a', bg: '#dbeafe' },
     offline: { icon: '📴', label: 'OFFLINE — Use Chat Below', color: '#7f1d1d', bg: '#fee2e2' }
   }[networkTier];
 
@@ -406,18 +406,18 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
             <p style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 12 }}>Patient: <strong>{partnerName}</strong></p>
 
             <div style={{ marginBottom: 16, padding: 12, border: `2px dashed ${COLORS.primary}`, borderRadius: 12, textAlign: 'center' }}>
-              <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700 }}>Upload Handwritten Prescription</p>
+              <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700, color: COLORS.primaryDark }}>Upload Handwritten Prescription</p>
               {prescriptionImage ? (
                 <div>
-                   <img src={prescriptionImage} alt="prescription" style={{ width: '100%', maxHeight: 80, objectFit: 'contain', borderRadius: 8, marginBottom: 8 }} />
-                   <p style={{ fontSize: 12, color: COLORS.success, margin: 0 }}>✓ Image uploaded & parsed</p>
+                  <img src={prescriptionImage} alt="prescription" style={{ width: '100%', maxHeight: 80, objectFit: 'contain', borderRadius: 8, marginBottom: 8 }} />
+                  <p style={{ fontSize: 12, color: COLORS.success, margin: 0 }}>✓ Image uploaded & parsed</p>
                 </div>
               ) : (
                 <>
                   <input type="file" accept="image/*" onChange={handleOCRUpload} style={{ display: 'none' }} id="ocr-upload" />
                   <label htmlFor="ocr-upload">
                     <div style={{ cursor: 'pointer', background: COLORS.primaryLight, padding: '8px 12px', borderRadius: 8, color: COLORS.primaryDark, fontSize: 14, fontWeight: 600 }}>
-                       {ocrLoading ? 'Extracting Text...' : 'Scan & Extract 📷'}
+                      {ocrLoading ? 'Extracting Text...' : 'Scan & Extract 📷'}
                     </div>
                   </label>
                 </>
@@ -426,7 +426,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
 
             {ocrConfidence === 'Low' && (
               <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: 8, padding: 10, marginBottom: 14 }}>
-                 <p style={{ margin: 0, fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>⚠️ Low OCR Confidence. Please verify and correct the extracted medicines manually below to avoid incorrect prescriptions.</p>
+                <p style={{ margin: 0, fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>⚠️ Low OCR Confidence. Please verify and correct the extracted medicines manually below to avoid incorrect prescriptions.</p>
               </div>
             )}
 

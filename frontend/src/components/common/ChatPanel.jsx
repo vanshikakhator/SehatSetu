@@ -124,7 +124,7 @@ export default function ChatPanel({ appointmentId, userName, role, partnerName, 
       height: '100%',
       background: '#fff',
       borderLeft: '1px solid #e5e7eb',
-      fontFamily: "'Segoe UI', system-ui, sans-serif"
+      fontFamily: "var(--font-display)"
     }}>
       {/* Header */}
       <div style={{ padding: '16px 20px', background: '#1a1a2e', borderBottom: '1px solid #333', flexShrink: 0 }}>

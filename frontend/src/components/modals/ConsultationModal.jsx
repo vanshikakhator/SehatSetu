@@ -10,7 +10,7 @@ export default function ConsultationModal({ appointment, onClose }) {
   
   return (
     <div style={{ position: "fixed", inset: 0, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-      <div style={{ background: "#fff", borderRadius: 20, padding: 32, width: 500, maxWidth: "90vw" }}>
+      <div style={{ background: COLORS.surface, borderRadius: 20, padding: 32, width: 500, maxWidth: "90vw" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h3 style={{ margin: 0 }}>Consultation — {appointment.patient}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>✕</button>

@@ -147,7 +147,7 @@ export default function DoctorDashboard() {
       if (!Array.isArray(medicines)) throw new Error("Not an array");
       
       return (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, background: "#fff", borderRadius: 8, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, background: COLORS.surface, borderRadius: 8, overflow: "hidden" }}>
           <thead>
             <tr style={{ background: COLORS.primaryDark, color: "#fff", textAlign: "left" }}>
               <th style={{ padding: 12 }}>Medicine Name</th>
@@ -178,13 +178,16 @@ export default function DoctorDashboard() {
   ];
 
   return (
-    <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", minHeight: "100vh", background: "#f0faf5" }}>
+    <div style={{ fontFamily: "var(--font-display)", minHeight: "100vh", background: COLORS.surfaceAlt, position: "relative" }}>
+      {/* Background Grid */}
+      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none", zIndex: 0 }}></div>
+      <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column" }}>
       {consultModal && <ConsultationModal appointment={consultModal} onClose={() => setConsultModal(null)} />}
       {callModal && <CallModal user={user} partnerName={callModal.patientName} appointmentId={callModal._id} type={callModal.type} onClose={() => { setCallModal(null); fetchAppointments(); }} />}
       
       {otpModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fff", borderRadius: 24, padding: 40, width: 400, textAlign: "center" }}>
+          <div style={{ background: COLORS.surface, borderRadius: 24, padding: 40, width: 400, textAlign: "center" }}>
             <h3 style={{ margin: "0 0 20px", fontSize: 24 }}>Patient Consent Required</h3>
             <p style={{ color: COLORS.textMuted, marginBottom: 20 }}>An OTP has been sent to the patient's mobile number. Please ask them for the OTP to gain temporary access to their health records.</p>
             <input 
@@ -205,7 +208,7 @@ export default function DoctorDashboard() {
       {viewingRecord && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div 
-            style={{ background: "#fff", borderRadius: 24, padding: 40, width: 700, maxWidth: "95%", position: "relative", userSelect: "none", maxHeight: "90vh", overflowY: "auto" }}
+            style={{ background: COLORS.surface, borderRadius: 24, padding: 40, width: 700, maxWidth: "95%", position: "relative", userSelect: "none", maxHeight: "90vh", overflowY: "auto" }}
             onContextMenu={e => e.preventDefault()}
           >
             {/* Security Watermark */}
@@ -283,24 +286,28 @@ export default function DoctorDashboard() {
       {sosAlert && (
         <div style={{ background: COLORS.danger, color: "#fff", padding: "12px 5%", display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative", zIndex: 100 }}>
           <p style={{ margin: 0, fontWeight: 700, fontSize: 18 }}>🚨 SOS EMERGENCY — Patient Puja Ghosh. Abdominal pain. Sector 4.</p>
-          <button onClick={() => setSosAlert(false)} style={{ background: "#fff", color: COLORS.danger, border: "none", borderRadius: 10, padding: "8px 20px", fontWeight: 800, cursor: "pointer", fontSize: 18 }}>Respond</button>
+          <button onClick={() => setSosAlert(false)} style={{ background: COLORS.surface, color: COLORS.danger, border: "none", borderRadius: 10, padding: "8px 20px", fontWeight: 800, cursor: "pointer", fontSize: 18 }}>Respond</button>
         </div>
       )}
 
-      <nav style={{ background: COLORS.primaryDark, color: "#fff", padding: "0 5%", display: "flex", alignItems: "center", justifyContent: "space-between", height: 70, position: "relative", zIndex: 10 }}>
+      <nav style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "0 5%", display: "flex", alignItems: "center", justifyContent: "space-between", height: 80, position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
-          <Avatar initials={user?.name[0]} size={46} color="#fff" />
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <p style={{ margin: 0, fontWeight: 800, fontSize: 20 }}>Dr. {user?.name}</p>
-              {user?.isVerified && <Badge color="success">✓ Verified</Badge>}
-            </div>
-            <p style={{ margin: 0, fontSize: 14, opacity: 0.8 }}>{user?.specialization} · {user?.communityName || 'Sector'} Specialist</p>
-          </div>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: COLORS.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>🌿</div>
+          <span style={{ fontWeight: 800, fontSize: 28, color: COLORS.text }}>सेहतSetu <span style={{fontSize: 16, color: COLORS.textMuted, fontStyle: "italic", fontWeight: 600}}>Doctor</span></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 15, marginRight: 20 }}>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: 16, color: COLORS.text }}>Dr. {user?.name}</p>
+                {user?.isVerified && <Badge color="success">✓ Verified</Badge>}
+              </div>
+              <p style={{ margin: 0, fontSize: 12, color: COLORS.textMuted }}>{user?.specialization} · {user?.communityName || 'Sector'} Specialist</p>
+            </div>
+            <Avatar initials={user?.name?.[0] || 'D'} size={40} color={COLORS.primary} />
+          </div>
           <LanguageSwitcher />
-          <button onClick={handleLogout} style={{ background: "#ffffff22", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 10, cursor: "pointer", fontSize: 18, fontWeight: 700 }}>Logout</button>
+          <button onClick={handleLogout} style={{ background: COLORS.primaryLight, border: "none", color: COLORS.primary, padding: "8px 20px", borderRadius: 10, cursor: "pointer", fontSize: 16, fontWeight: 700 }}>Logout</button>
         </div>
       </nav>
 
@@ -383,6 +390,7 @@ export default function DoctorDashboard() {
             </div>
           )}
         </main>
+      </div>
       </div>
     </div>
   );
