@@ -41,7 +41,7 @@ export default function PharmacyDashboard() {
           const coords = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
           setLocationStr(coords);
           try {
-            await axios.put((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/auth/profile', {
+            await axios.put((import.meta.env.VITE_API_URL || "http://localhost:5000") + '/api/auth/profile', {
               userId: user._id,
               location: coords
             }, { headers: { 'user-id': user._id } });
@@ -103,7 +103,7 @@ export default function PharmacyDashboard() {
         const coords = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
         setLocationStr(coords);
         try {
-          await axios.put((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/auth/profile', {
+          await axios.put((import.meta.env.VITE_API_URL || "http://localhost:5000") + '/api/auth/profile', {
             userId: user._id,
             location: coords
           }, { headers: { 'user-id': user._id } });
@@ -222,7 +222,7 @@ export default function PharmacyDashboard() {
                         const val = locationStr.trim();
                         if (!val) return;
                         try {
-                          await axios.put((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/auth/profile', {
+                          await axios.put((import.meta.env.VITE_API_URL || "http://localhost:5000") + '/api/auth/profile', {
                             userId: user._id,
                             location: val
                           }, { headers: { 'user-id': user._id } });

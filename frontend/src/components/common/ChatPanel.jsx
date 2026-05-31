@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { COLORS } from '../../constants';
 
-const SOCKET_URL = (import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000"));
+const SOCKET_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000");
 
 export default function ChatPanel({ appointmentId, userName, role, partnerName, isOffline }) {
   const [messages, setMessages] = useState([]);

@@ -18,12 +18,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const sendOtp = async (data) => {
-    const res = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/auth/send-otp', data);
+    const res = await axios.post((import.meta.env.VITE_API_URL || "http://localhost:5000") + '/api/auth/send-otp', data);
     return res.data;
   };
 
   const verifyOtp = async (data) => {
-    const res = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/auth/verify-otp', data);
+    const res = await axios.post((import.meta.env.VITE_API_URL || "http://localhost:5000") + '/api/auth/verify-otp', data);
     if (res.data) {
       localStorage.setItem('user', JSON.stringify(res.data));
       setUser(res.data);
