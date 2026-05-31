@@ -24,12 +24,12 @@ export default function PharmacyDashboard() {
     if (!user?._id) return;
 
     // Fetch inventory
-    axios.get(`http://localhost:5000/api/auth/inventory/${user._id}`)
+    axios.get(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/auth/inventory/${user._id}`)
       .then(res => setInventory(res.data))
       .catch(err => console.error(err));
 
     // Fetch medicine orders
-    axios.get(`http://localhost:5000/api/medicine-orders/pharmacy/${user._id}`)
+    axios.get(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/medicine-orders/pharmacy/${user._id}`)
       .then(res => setOrders(res.data))
       .catch(err => console.error(err));
 
@@ -41,7 +41,7 @@ export default function PharmacyDashboard() {
           const coords = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
           setLocationStr(coords);
           try {
-            await axios.put('http://localhost:5000/api/auth/profile', {
+            await axios.put((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/auth/profile\', {
               userId: user._id,
               location: coords
             }, { headers: { 'user-id': user._id } });
@@ -63,7 +63,7 @@ export default function PharmacyDashboard() {
 
   const saveInventory = async (inv) => {
     try {
-      await axios.put(`http://localhost:5000/api/auth/inventory/${user._id}`, { inventory: inv });
+      await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/auth/inventory/${user._id}`, { inventory: inv });
       setInventory(inv);
     } catch (err) {
       console.error(err);
@@ -103,7 +103,7 @@ export default function PharmacyDashboard() {
         const coords = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
         setLocationStr(coords);
         try {
-          await axios.put('http://localhost:5000/api/auth/profile', {
+          await axios.put((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/auth/profile\', {
             userId: user._id,
             location: coords
           }, { headers: { 'user-id': user._id } });
@@ -120,7 +120,7 @@ export default function PharmacyDashboard() {
     const amt = advanceInput[orderId];
     if (!amt || isNaN(amt)) return alert("Please enter a valid amount");
     try {
-      const res = await axios.put(`http://localhost:5000/api/medicine-orders/${orderId}/advance`, { advanceAmount: Number(amt) });
+      const res = await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/medicine-orders/${orderId}/advance`, { advanceAmount: Number(amt) });
       setOrders(orders.map(o => o._id === orderId ? res.data : o));
     } catch (err) {
       alert("Failed to set advance");
@@ -129,7 +129,7 @@ export default function PharmacyDashboard() {
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
-      const res = await axios.put(`http://localhost:5000/api/medicine-orders/${orderId}/status`, { status: newStatus });
+      const res = await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/medicine-orders/${orderId}/status`, { status: newStatus });
       setOrders(orders.map(o => o._id === orderId ? res.data : o));
     } catch (err) {
       alert("Failed to update status");
@@ -222,7 +222,7 @@ export default function PharmacyDashboard() {
                         const val = locationStr.trim();
                         if (!val) return;
                         try {
-                          await axios.put('http://localhost:5000/api/auth/profile', {
+                          await axios.put((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/auth/profile\', {
                             userId: user._id,
                             location: val
                           }, { headers: { 'user-id': user._id } });

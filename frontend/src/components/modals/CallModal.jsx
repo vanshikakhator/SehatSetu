@@ -145,7 +145,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
     if (!appointmentId) return;
     const interval = setInterval(async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/user/${user._id}`);
         const appt = res.data.find(a => a._id === appointmentId);
         if (!appt) return;
         if (appt.status === 'completed') return onClose();
@@ -182,7 +182,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
         return;
       }
 
-      await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, { prescription: presStr, prescriptionImage });
+      await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/${appointmentId}/prescription`, { prescription: presStr, prescriptionImage });
       alert('Prescription saved and sent to patient!');
       onClose();
     } catch { alert('Failed to save prescription'); }
@@ -201,7 +201,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
           offlinePrescriptions.push({ appointmentId, prescription: finalPres, status: 'queued' });
           await localforage.setItem(`offline_prescriptions_${user._id}`, offlinePrescriptions);
         } else {
-          await axios.put(`http://localhost:5000/api/appointments/${appointmentId}/prescription`, {
+          await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/${appointmentId}/prescription`, {
             prescription: finalPres
           });
         }
@@ -229,7 +229,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
       reader.onloadend = async () => {
         const base64String = reader.result;
         try {
-          const res = await axios.post('http://localhost:5000/api/ocr/parse', { imageBase64: base64String });
+          const res = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/ocr/parse\', { imageBase64: base64String });
           if (res.data.success) {
             setMedicines(res.data.medicines);
             setPrescriptionImage(res.data.imageUrl);

@@ -51,7 +51,7 @@ export default function DoctorDashboard() {
           for (let p of offlinePrescriptions) {
             if (p.status === 'queued') {
               try {
-                await axios.put(`http://localhost:5000/api/appointments/${p.appointmentId}/prescription`, { prescription: p.prescription });
+                await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/${p.appointmentId}/prescription`, { prescription: p.prescription });
                 p.status = 'synced';
                 anySynced = true;
               } catch (e) {
@@ -69,7 +69,7 @@ export default function DoctorDashboard() {
         }
       }
 
-      const res = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/user/${user._id}`);
       
       const mockAppointments = [
         {
@@ -110,7 +110,7 @@ export default function DoctorDashboard() {
 
   const requestPatientRecordAccess = async (patientId) => {
     try {
-      await axios.post(`http://localhost:5000/api/auth/health-record/request-otp`, { patientId, doctorId: user._id });
+      await axios.post(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/auth/health-record/request-otp`, { patientId, doctorId: user._id });
       setOtpModal({ patientId });
     } catch (err) {
       alert("Could not request access. Ensure patient is verified.");
@@ -119,7 +119,7 @@ export default function DoctorDashboard() {
 
   const verifyRecordOtp = async () => {
     try {
-      const res = await axios.post(`http://localhost:5000/api/auth/health-record/verify-otp`, { 
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/auth/health-record/verify-otp`, { 
         patientId: otpModal.patientId, 
         otp: otpInput, 
         doctorId: user._id 
@@ -134,7 +134,7 @@ export default function DoctorDashboard() {
 
   const startCall = async (appt, type) => {
     try {
-      await axios.put(`http://localhost:5000/api/appointments/${appt._id}/status`, { status: 'calling', callType: type });
+      await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/${appt._id}/status`, { status: 'calling', callType: type });
       setCallModal({ ...appt, type });
     } catch (err) {
       alert("Failed to initiate call");

@@ -54,7 +54,7 @@ export default function ProfilePage() {
     
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/upload', uploadData, {
+      const res = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/upload\', uploadData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const filePath = res.data.filePath;
@@ -105,7 +105,7 @@ export default function ProfilePage() {
         payload.communityName = formData.communityName;
       }
 
-      const res = await axios.put('http://localhost:5000/api/auth/profile', payload, {
+      const res = await axios.put((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/auth/profile\', payload, {
         headers: { 'user-id': user._id }
       });
       updateUser({ ...user, ...res.data });

@@ -82,7 +82,7 @@ export default function PatientDashboard() {
 
   const fetchMedicineOrders = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/medicine-orders/patient/${user._id}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/medicine-orders/patient/${user._id}`);
       setMedicineOrders(res.data);
     } catch (err) {
       console.error("Failed to fetch medicine orders", err);
@@ -91,7 +91,7 @@ export default function PatientDashboard() {
 
   const fetchAppointments = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/user/${user._id}`);
 
       // Load offline bookings
       const offlineBookings = await localforage.getItem(`offline_bookings_${user._id}`) || [];
@@ -102,8 +102,8 @@ export default function PatientDashboard() {
         for (let b of offlineBookings) {
           if (b.status === 'queued') {
             try {
-              const bRes = await axios.post('http://localhost:5000/api/appointments/book', b);
-              await axios.post('http://localhost:5000/api/appointments/verify', {
+              const bRes = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/appointments/book\', b);
+              await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/appointments/verify\', {
                 appointmentId: bRes.data.appointment._id,
                 razorpayPaymentId: "simulated_" + Date.now()
               });
@@ -118,7 +118,7 @@ export default function PatientDashboard() {
           const remainingOffline = offlineBookings.filter(b => b.status === 'queued');
           await localforage.setItem(`offline_bookings_${user._id}`, remainingOffline);
           // Refetch to get the latest online status
-          const updatedRes = await axios.get(`http://localhost:5000/api/appointments/user/${user._id}`);
+          const updatedRes = await axios.get(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/user/${user._id}`);
           setAppointments(updatedRes.data);
           return;
         }
@@ -149,7 +149,7 @@ export default function PatientDashboard() {
   const fetchDoctors = async () => {
     setLoadingDoctors(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/auth/doctors');
+      const res = await axios.get((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/auth/doctors\');
       setDoctors(res.data);
     } catch (err) {
       console.error("Failed to fetch doctors", err);
@@ -179,7 +179,7 @@ export default function PatientDashboard() {
 
   const acceptCall = async (incoming) => {
     try {
-      await axios.put(`http://localhost:5000/api/appointments/${incoming.appointmentId}/status`, { status: 'active' });
+      await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/${incoming.appointmentId}/status`, { status: 'active' });
       setCallModal({ name: incoming.doctorName, id: incoming.appointmentId, type: incoming.type });
       setIncomingCall(null);
     } catch (err) {
@@ -189,7 +189,7 @@ export default function PatientDashboard() {
 
   const declineCall = async (incoming) => {
     try {
-      await axios.put(`http://localhost:5000/api/appointments/${incoming.appointmentId}/status`, { status: 'confirmed', callType: 'none' });
+      await axios.put(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/appointments/${incoming.appointmentId}/status`, { status: 'confirmed', callType: 'none' });
       setIncomingCall(null);
     } catch (err) {
       alert("Failed to decline call");
@@ -244,7 +244,7 @@ export default function PatientDashboard() {
         return;
       }
 
-      const res = await axios.get(`http://localhost:5000/api/auth/pharmacies/search?meds=${encodeURIComponent(medsString)}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/auth/pharmacies/search?meds=${encodeURIComponent(medsString)}`);
 
       if (res.data && res.data.length > 0) {
         setNearbyPharmacies(res.data); // DB pharmacies already have location field
@@ -526,7 +526,7 @@ export default function PatientDashboard() {
                   });
 
                   try {
-                    await axios.post('http://localhost:5000/api/medicine-orders', ordersToCreate);
+                    await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/medicine-orders\', ordersToCreate);
                     alert("Requests sent successfully!");
                     setCart([]);
                     setShowCart(false);
@@ -558,7 +558,7 @@ export default function PatientDashboard() {
                 <Btn variant="outline" onClick={() => setPayAdvanceModal(null)}>Cancel</Btn>
                 <Btn style={{ flex: 1, background: "#22c55e" }} onClick={async () => {
                   try {
-                    await axios.post(`http://localhost:5000/api/medicine-orders/${payAdvanceModal.orderId}/pay`);
+                    await axios.post(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/medicine-orders/${payAdvanceModal.orderId}/pay`);
                     alert("Advance paid successfully!");
                     setPayAdvanceModal(null);
                     fetchMedicineOrders();
@@ -985,7 +985,7 @@ export default function PatientDashboard() {
                             }
                             // Send SOS SMS alert
                             try {
-                              await axios.post('http://localhost:5000/api/sos/alert', {
+                              await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/sos/alert\', {
                                 patientName: user?.name,
                                 patientId: user?._id,
                                 location: locStr,
