@@ -86,12 +86,12 @@ export default function PaymentModal({ doctor, user, onClose, onSuccess }) {
 
     try {
       // 1. Book the appointment
-      const res = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/appointments/book\', bookingPayload);
+      const res = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/appointments/book', bookingPayload);
 
       const { appointment } = res.data;
 
       // 2. Verify/Confirm immediately
-      await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/appointments/verify\', {
+      await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/appointments/verify', {
         appointmentId: appointment._id,
         razorpayPaymentId: "simulated_" + Date.now()
       });

@@ -229,7 +229,7 @@ export default function CallModal({ user, partnerName, appointmentId, type, onCl
       reader.onloadend = async () => {
         const base64String = reader.result;
         try {
-          const res = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/ocr/parse\', { imageBase64: base64String });
+          const res = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/ocr/parse', { imageBase64: base64String });
           if (res.data.success) {
             setMedicines(res.data.medicines);
             setPrescriptionImage(res.data.imageUrl);

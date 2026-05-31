@@ -102,8 +102,8 @@ export default function PatientDashboard() {
         for (let b of offlineBookings) {
           if (b.status === 'queued') {
             try {
-              const bRes = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/appointments/book\', b);
-              await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/appointments/verify\', {
+              const bRes = await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/appointments/book', b);
+              await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/appointments/verify', {
                 appointmentId: bRes.data.appointment._id,
                 razorpayPaymentId: "simulated_" + Date.now()
               });
@@ -149,7 +149,7 @@ export default function PatientDashboard() {
   const fetchDoctors = async () => {
     setLoadingDoctors(true);
     try {
-      const res = await axios.get((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/auth/doctors\');
+      const res = await axios.get((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/auth/doctors');
       setDoctors(res.data);
     } catch (err) {
       console.error("Failed to fetch doctors", err);
@@ -526,7 +526,7 @@ export default function PatientDashboard() {
                   });
 
                   try {
-                    await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/medicine-orders\', ordersToCreate);
+                    await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/medicine-orders', ordersToCreate);
                     alert("Requests sent successfully!");
                     setCart([]);
                     setShowCart(false);
@@ -985,7 +985,7 @@ export default function PatientDashboard() {
                             }
                             // Send SOS SMS alert
                             try {
-                              await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + \'/api/sos/alert\', {
+                              await axios.post((import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")) + '/api/sos/alert', {
                                 patientName: user?.name,
                                 patientId: user?._id,
                                 location: locStr,
